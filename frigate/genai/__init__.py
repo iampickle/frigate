@@ -56,6 +56,18 @@ class GenAIClient:
             else:
                 return ""
 
+        def get_recognized_prompt() -> str:
+            if not review_data["recognized_objects"]:
+                return ""
+
+            return f"""
+Recognized Objects:
+- These are people, vehicles, or other entities that the system has positively identified.
+- Always use these names or labels directly in the scene description instead of generic terms.
+- If a recognized object is a known resident, family member, neighbor, frequent visitor, or commonly seen vehicle/service, this generally reduces suspicion unless clear malicious activity is observed.
+- Recognized objects: {list(set(review_data["recognized_objects"])) or "None"}
+"""
+
         def get_language_prompt() -> str:
             if preferred_language:
                 return f"Provide your answer in {preferred_language}"
@@ -84,11 +96,7 @@ When forming your description:
 - Focus on behaviors that are uncharacteristic of innocent activity: loitering without clear purpose, avoiding cameras, inspecting vehicles/doors, changing behavior when lights activate, scanning surroundings without an apparent benign reason.
 - **Benign context override**: If scanning or looking around is clearly part of an innocent activity (such as playing with a dog, gardening, supervising children, or watching for a pet), do not treat it as suspicious.
 
-Recognized Objects:
-- These are people, vehicles, or other entities that the system has positively identified.
-- Always use these names or labels directly in the scene description instead of generic terms.
-- If a recognized object is a known resident, family member, neighbor, frequent visitor, or commonly seen vehicle/service, this generally reduces suspicion unless clear malicious activity is observed.
-- Recognized objects: {list(set(review_data["recognized_objects"])) or "None"}
+{get_recognized_prompt()}
 
 Sequence details:
 - Frame 1 = earliest, Frame 10 = latest
