@@ -136,7 +136,7 @@ Threat-level definitions:
                 ),
                 "w",
             ) as f:
-                f.write(context_prompt)
+                f.write(response)
 
         if response:
             clean_json = re.sub(
