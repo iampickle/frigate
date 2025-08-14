@@ -65,6 +65,12 @@ class GenAIClient:
         context_prompt = f"""
 Please analyze the sequence of images ({len(thumbnails)} total) taken in chronological order from the perspective of the {review_data["camera"].replace("_", " ")} security camera.
 
+Your response MUST be a flat JSON object with:
+- `scene` (string): A full description including setting, entities, actions, and any plausible supported inferences.
+- `confidence` (float): 0-1 confidence in the analysis.
+- `potential_threat_level` (integer): 0, 1, or 2 as defined below.
+{get_concern_prompt()}
+
 Your task is to provide a clear, security-focused description of the scene that:
 1. States exactly what is happening based on observable actions and movements.
 2. Identifies and emphasizes behaviors that match patterns of suspicious activity.
@@ -78,25 +84,25 @@ When forming your description:
 - Focus on behaviors that are uncharacteristic of innocent activity: loitering without clear purpose, avoiding cameras, inspecting vehicles/doors, changing behavior when lights activate, scanning surroundings without an apparent benign reason.
 - **Benign context override**: If scanning or looking around is clearly part of an innocent activity (such as playing with a dog, gardening, supervising children, or watching for a pet), do not treat it as suspicious.
 
-Your response MUST be a flat JSON object with:
-- `scene` (string): A full description including setting, entities, actions, and any plausible supported inferences.
-- `confidence` (float): 0-1 confidence in the analysis.
-- `potential_threat_level` (integer): 0, 1, or 2 as defined below.
-{get_concern_prompt()}
+Recognized Objects:
+- These are people, vehicles, or other entities that the system has positively identified.
+- Always use these names or labels directly in the scene description instead of generic terms.
+- If a recognized object is a known resident, family member, neighbor, frequent visitor, or commonly seen vehicle/service, this generally reduces suspicion unless clear malicious activity is observed.
+- Recognized objects: {list(set(review_data["recognized_objects"])) or "None"}
+
+Sequence details:
+- Frame 1 = earliest, Frame 10 = latest
+- Activity occurred at {review_data["timestamp"].strftime("%I:%M %p")}
+- Detected objects: {list(set(review_data["objects"]))}
+- Zones involved: {review_data["zones"]}
 
 Threat-level definitions:
 - 0 — Typical or expected activity for this location/time (includes residents, guests, or known animals engaged in normal activities, even if they glance around or scan surroundings).
 - 1 — Unusual or suspicious activity: At least one security-relevant behavior is present **and not explainable by a normal residential activity**.
 - 2 — Active or immediate threat: Breaking in, vandalism, aggression, weapon display.
 
-Sequence details:
-- Frame 1 = earliest, Frame 10 = latest
-- Activity occurred at {review_data["timestamp"].strftime("%I:%M %p")}
-- Detected objects: {list(set(review_data["objects"]))}
-- Recognized objects: {list(set(review_data["recognized_objects"])) or "None"}
-- Zones involved: {review_data["zones"]}
-
 **IMPORTANT:**
+- Output must be one flat JSON object, nothing else.
 - Values must be plain strings, floats, or integers — no nested objects, no extra commentary.
 {get_language_prompt()}
         """
