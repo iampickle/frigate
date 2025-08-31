@@ -5,7 +5,7 @@ import os
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Path, Request
 from fastapi.responses import JSONResponse
 from peewee import DoesNotExist
 from py_vapid import Vapid01, utils
@@ -69,3 +69,49 @@ def register_notifications(request: Request, body: dict = None):
             content=({"success": False, "message": "Could not find user."}),
             status_code=404,
         )
+
+
+@router.get("/notifications/weight-stats/{camera_name}")
+def get_weight_statistics(request: Request, camera_name: str = Path(..., title="Camera name")):
+    """Get notification weight statistics for a specific camera."""
+    config = request.app.frigate_config
+    dispatcher = request.app.dispatcher
+    
+    # Check if camera exists
+    if camera_name not in config.cameras:
+        raise HTTPException(status_code=404, detail=f"Camera {camera_name} not found")
+    
+    # Check if dispatcher and webpush client are available
+    if not dispatcher or not dispatcher.web_push_client:
+        raise HTTPException(status_code=503, detail="WebPush client not available")
+    
+    # Get weight statistics from WebPushClient
+    try:
+        stats = dispatcher.web_push_client.get_weight_statistics(camera_name)
+        return JSONResponse(content=stats, status_code=200)
+    except Exception as e:
+        logger.error(f"Error getting weight statistics for {camera_name}: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting weight statistics: {str(e)}")
+
+
+@router.get("/notifications/weight-stats")
+def get_all_weight_statistics(request: Request):
+    """Get notification weight statistics for all cameras."""
+    config = request.app.frigate_config
+    dispatcher = request.app.dispatcher
+    
+    # Check if dispatcher and webpush client are available
+    if not dispatcher or not dispatcher.web_push_client:
+        raise HTTPException(status_code=503, detail="WebPush client not available")
+    
+    # Get weight statistics for all cameras
+    try:
+        all_stats = {}
+        for camera_name in config.cameras.keys():
+            if config.cameras[camera_name].enabled and config.cameras[camera_name].notifications.enabled:
+                all_stats[camera_name] = dispatcher.web_push_client.get_weight_statistics(camera_name)
+        
+        return JSONResponse(content=all_stats, status_code=200)
+    except Exception as e:
+        logger.error(f"Error getting weight statistics for all cameras: {e}")
+        raise HTTPException(status_code=500, detail=f"Error getting weight statistics: {str(e)}")

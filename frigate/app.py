@@ -566,6 +566,7 @@ class FrigateApp:
                     self.stats_emitter,
                     self.event_metadata_updater,
                     self.inter_config_updater,
+                    self.dispatcher,
                 ),
                 host="127.0.0.1",
                 port=5001,
