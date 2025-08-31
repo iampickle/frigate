@@ -1,6 +1,17 @@
 mqtt:
   host: mqtt
 
+# Global notification settings
+notifications:
+  enabled: true
+  email: your-email@example.com
+  cooldown: 180
+  # Weight-based cooldown configuration
+  weight_decay_days: 3      # Days after which notification weights start to decay
+  weight_factor: 0.2        # Cooldown increase factor per weight unit (0.2 = 20% increase)
+  weight_max_factor: 3.0    # Maximum cooldown multiplier (3.0 = max 300% of base cooldown)
+  weight_time_slots: 24     # Number of time slots per day for weight tracking (24 = hourly)
+
 cameras:
   test:
     ffmpeg:
@@ -14,3 +25,10 @@ cameras:
       height: 1080
       width: 1920
       fps: 5
+    notifications:
+      enabled: true
+      cooldown: 60
+      # Optional: Override global weight settings for this camera
+      # weight_decay_days: 5      # Different decay time for this camera
+      # weight_factor: 0.3        # Higher cooldown increase for this camera
+      # weight_max_factor: 5.0    # Higher maximum multiplier for this camera
