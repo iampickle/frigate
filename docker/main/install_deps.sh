@@ -27,7 +27,39 @@ update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 mkdir -p -m 600 /root/.gnupg
 
 # install coral runtime
-wget -q -O /tmp/libedgetpu1-max.deb "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.17.1-1/libedgetpu1-max_16.0tf2.17.1-1.bookworm_${TARGETARCH}.deb"
+echo "DEBUG: TARGETARCH is '${TARGETARCH}'"
+echo "DEBUG: Attempting to download libedgetpu for architecture: ${TARGETARCH}"
+
+# Map architecture names to match the available files
+case "${TARGETARCH}" in
+    "amd64")
+        CORAL_ARCH="amd64"
+        ;;
+    "arm64")
+        CORAL_ARCH="arm64"
+        ;;
+    "arm")
+        CORAL_ARCH="armhf"
+        ;;
+    "armhf")
+        CORAL_ARCH="armhf"
+        ;;
+    *)
+        echo "ERROR: Unsupported architecture '${TARGETARCH}' for coral runtime"
+        echo "Available architectures: amd64, arm64, armhf"
+        exit 1
+        ;;
+esac
+
+echo "DEBUG: Mapped architecture to: ${CORAL_ARCH}"
+wget -q -O /tmp/libedgetpu1-max.deb "https://github.com/feranick/libedgetpu/releases/download/16.0TF2.17.1-1/libedgetpu1-max_16.0tf2.17.1-1.bookworm_${CORAL_ARCH}.deb"
+if [ $? -ne 0 ]; then
+    echo "ERROR: Failed to download libedgetpu1-max.deb for architecture ${CORAL_ARCH}"
+    echo "DEBUG: Trying to list available files..."
+    curl -s "https://api.github.com/repos/feranick/libedgetpu/releases/tags/16.0TF2.17.1-1" | grep "libedgetpu1-max.*bookworm.*\.deb" || echo "Could not list files"
+    exit 1
+fi
+
 unset DEBIAN_FRONTEND
 yes | dpkg -i /tmp/libedgetpu1-max.deb && export DEBIAN_FRONTEND=noninteractive
 rm /tmp/libedgetpu1-max.deb
