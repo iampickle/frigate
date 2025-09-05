@@ -34,6 +34,17 @@ export type SearchModelSize = "small" | "large";
 
 export interface CameraConfig {
   friendly_name: string;
+  actions?: {
+    actions: Array<{
+      name: string;
+      url: string;
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+      icon?: string;
+      standalone?: boolean;
+    }>;
+  };
   audio: {
     enabled: boolean;
     enabled_in_config: boolean;

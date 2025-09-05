@@ -24,6 +24,7 @@ from ..classification import (
     CameraLicensePlateRecognitionConfig,
     CameraSemanticSearchConfig,
 )
+from .actions import CameraActionsConfig
 from .audio import AudioConfig
 from .birdseye import BirdseyeCameraConfig
 from .detect import DetectConfig
@@ -66,6 +67,9 @@ class CameraConfig(FrigateBaseModel):
     enabled: bool = Field(default=True, title="Enable camera.")
 
     # Options with global fallback
+    actions: CameraActionsConfig = Field(
+        default_factory=CameraActionsConfig, title="Camera actions configuration."
+    )
     audio: AudioConfig = Field(
         default_factory=AudioConfig, title="Audio events configuration."
     )

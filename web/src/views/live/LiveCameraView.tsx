@@ -10,6 +10,7 @@ import {
   useSnapshotsState,
 } from "@/api/ws";
 import CameraFeatureToggle from "@/components/dynamic/CameraFeatureToggle";
+import CameraActions from "@/components/dynamic/CameraActions";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import LivePlayer from "@/components/player/LivePlayer";
 import { Button } from "@/components/ui/button";
@@ -180,7 +181,7 @@ export default function LiveCameraView({
         (prod) =>
           prod.medias &&
           prod.medias.find((media) => media.includes("audio, sendonly")) !=
-            undefined,
+          undefined,
       ) != undefined
     );
   }, [cameraMetadata]);
@@ -194,7 +195,7 @@ export default function LiveCameraView({
         (prod) =>
           prod.medias &&
           prod.medias.find((media) => media.includes("audio, recvonly")) !=
-            undefined,
+          undefined,
       ) != undefined
     );
   }, [cameraMetadata]);
@@ -412,7 +413,7 @@ export default function LiveCameraView({
 
       // If the current device doesn't support locking orientation,
       // this promise will reject with an error that we can ignore
-      screenOrientation.lock(orientationForBestFit).catch(() => {});
+      screenOrientation.lock(orientationForBestFit).catch(() => { });
     }
 
     return () => screenOrientation.unlock();
@@ -589,6 +590,11 @@ export default function LiveCameraView({
                   disabled={!cameraEnabled}
                 />
               )}
+              <CameraActions
+                camera={camera}
+                fullscreen={fullscreen}
+                cameraEnabled={cameraEnabled}
+              />
               <FrigateCameraFeatures
                 camera={camera}
                 recordingEnabled={camera.record.enabled_in_config}
