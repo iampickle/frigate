@@ -48,6 +48,7 @@ import { useDocDomain } from "@/hooks/use-doc-domain";
 import { CameraNameLabel } from "@/components/camera/CameraNameLabel";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { cn } from "@/lib/utils";
+// import CustomNotificationButton from "@/components/overlay/CustomNotificationDialog";
 
 const NOTIFICATION_SERVICE_WORKER = "notifications-worker.js";
 
@@ -185,9 +186,9 @@ export default function NotificationView({
 
   const shouldFetchPubKey = Boolean(
     config &&
-      (config.notifications?.enabled || anyCameraNotificationsEnabled) &&
-      (watchAllEnabled ||
-        (Array.isArray(watchCameras) && watchCameras.length > 0)),
+    (config.notifications?.enabled || anyCameraNotificationsEnabled) &&
+    (watchAllEnabled ||
+      (Array.isArray(watchCameras) && watchCameras.length > 0)),
   );
 
   const { data: publicKey } = useSWR(
@@ -612,6 +613,10 @@ export default function NotificationView({
                       {t("notification.sendTestNotification")}
                     </Button>
                   )}
+                  {/* Custom notification button will be added when UI framework is ready */}
+                  {/* {isAdmin && registration != null && registration.active && (
+                    <CustomNotificationButton />
+                  )} */}
                 </div>
               </div>
               {isAdmin && notificationCameras.length > 0 && (
@@ -701,11 +706,11 @@ export function CameraNotificationSwitch({
       date_format:
         config?.ui.time_format == "24hour"
           ? t("time.formattedTimestampMonthDayHourMinute.24hour", {
-              ns: "common",
-            })
+            ns: "common",
+          })
           : t("time.formattedTimestampMonthDayHourMinute.12hour", {
-              ns: "common",
-            }),
+            ns: "common",
+          }),
       locale: locale,
     });
     return t("time.untilForTime", { ns: "common", time });
