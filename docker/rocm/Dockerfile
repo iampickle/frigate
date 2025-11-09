@@ -47,7 +47,7 @@ RUN wget -q https://bootstrap.pypa.io/get-pip.py -O get-pip.py \
 RUN python3 -m pip config set global.break-system-packages true
 
 COPY docker/rocm/requirements-wheels-rocm.txt /requirements.txt
-RUN pip3 uninstall -y onnxruntime-openvino \
+RUN pip3 uninstall -y onnxruntime \
     && pip3 install -r /requirements.txt
 
 #######################################################################
@@ -66,6 +66,9 @@ COPY --from=rocm /opt/rocm-dist/ /
 FROM deps-prelim AS rocm-prelim-hsa-override0
 ENV HSA_ENABLE_SDMA=0
 ENV TF_ROCM_USE_IMMEDIATE_MODE=1
+
+# avoid kernel crashes
+ENV HIP_FORCE_DEV_KERNARG=1
 
 COPY --from=rocm-dist / /
 

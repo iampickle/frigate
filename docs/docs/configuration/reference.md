@@ -287,6 +287,9 @@ detect:
   max_disappeared: 25
   # Optional: Configuration for stationary object tracking
   stationary:
+    # Optional: Stationary classifier that uses visual characteristics to determine if an object
+    # is stationary even if the box changes enough to be considered motion (default: shown below).
+    classifier: True
     # Optional: Frequency for confirming stationary objects (default: same as threshold)
     # When set to 1, object detection will run to confirm the object still exists on every frame.
     # If set to 10, object detection will run to confirm the object still exists on every 10th frame.
@@ -661,6 +664,8 @@ lpr:
   enhancement: 0
   # Optional: Save plate images to /media/frigate/clips/lpr for debugging purposes (default: shown below)
   debug_save_plates: False
+  # Optional: List of regex replacement rules to normalize detected plates (default: shown below)
+  replace_rules: {}
 
 # Optional: Configuration for AI generated tracked object descriptions
 # WARNING: Depending on the provider, this will send thumbnails over the internet
@@ -695,7 +700,7 @@ audio_transcription:
   language: en
 
 # Optional: Restream configuration
-# Uses https://github.com/AlexxIT/go2rtc (v1.9.9)
+# Uses https://github.com/AlexxIT/go2rtc (v1.9.10)
 # NOTE: The default go2rtc API port (1984) must be used,
 #       changing this port for the integrated go2rtc instance is not supported.
 go2rtc:
