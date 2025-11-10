@@ -16,6 +16,7 @@ from frigate.api import app as main_app
 from frigate.api import (
     auth,
     camera,
+    camera_actions,
     classification,
     event,
     export,
