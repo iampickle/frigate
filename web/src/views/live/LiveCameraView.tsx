@@ -10,7 +10,7 @@ import {
   useSnapshotsState,
 } from "@/api/ws";
 import CameraFeatureToggle from "@/components/dynamic/CameraFeatureToggle";
-import CameraActions from "@/components/dynamic/CameraActions";
+//import CameraActions from "@/components/dynamic/CameraActions";
 import FilterSwitch from "@/components/filter/FilterSwitch";
 import LivePlayer from "@/components/player/LivePlayer";
 import { Button } from "@/components/ui/button";
