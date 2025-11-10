@@ -17,6 +17,7 @@ from frigate.detectors.detector_config import (
     BaseDetectorConfig,
     ModelTypeEnum,
 )
+from frigate.util.file import FileLock
 from frigate.util.model import post_process_yolo
 
 logger = logging.getLogger(__name__)
@@ -212,9 +213,9 @@ class MemryXDetector(DetectionApi):
             os.makedirs(self.cache_dir, exist_ok=True)
 
         lock_path = os.path.join(self.cache_dir, f".{self.model_folder}.lock")
-        self._acquire_file_lock(lock_path)
+        lock = FileLock(lock_path, timeout=60)
 
-        try:
+        with lock:
             # ---------- CASE 1: user provided a custom model path ----------
             if self.memx_model_path:
                 if not self.memx_model_path.endswith(".zip"):
@@ -337,9 +338,6 @@ class MemryXDetector(DetectionApi):
                         logger.warning(
                             f"Failed to remove downloaded zip {zip_path}: {e}"
                         )
-
-        finally:
-            self._release_file_lock(lock_path)
 
     def send_input(self, connection_id, tensor_input: np.ndarray):
         """Pre-process (if needed) and send frame to MemryX input queue"""

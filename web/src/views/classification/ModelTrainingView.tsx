@@ -1,4 +1,3 @@
-import { baseUrl } from "@/api/baseUrl";
 import TextEntryDialog from "@/components/overlay/dialog/TextEntryDialog";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
@@ -37,23 +36,40 @@ import { cn } from "@/lib/utils";
 import { CustomClassificationModelConfig } from "@/types/frigateConfig";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
 import axios from "axios";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { isDesktop, isMobile } from "react-device-detect";
+import {
+  MutableRefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { isDesktop, isMobileOnly } from "react-device-detect";
 import { Trans, useTranslation } from "react-i18next";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { toast } from "sonner";
 import useSWR from "swr";
 import ClassificationSelectionDialog from "@/components/overlay/ClassificationSelectionDialog";
 import { TbCategoryPlus } from "react-icons/tb";
+import BlurredIconButton from "@/components/button/BlurredIconButton";
 import { useModelState } from "@/api/ws";
 import { ModelState } from "@/types/ws";
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import { useNavigate } from "react-router-dom";
 import { IoMdArrowRoundBack } from "react-icons/io";
-import { MdAutoFixHigh } from "react-icons/md";
 import TrainFilterDialog from "@/components/overlay/dialog/TrainFilterDialog";
 import useApiFilter from "@/hooks/use-api-filter";
-import { TrainFilter } from "@/types/classification";
+import { ClassificationItemData, TrainFilter } from "@/types/classification";
+import {
+  ClassificationCard,
+  GroupedClassificationCard,
+} from "@/components/card/ClassificationCard";
+import { Event } from "@/types/event";
+import SearchDetailDialog, {
+  SearchTab,
+} from "@/components/overlay/detail/SearchDetailDialog";
+import { SearchResult } from "@/types/search";
+import { HiSparkles } from "react-icons/hi";
 
 type ModelTrainingViewProps = {
   model: CustomClassificationModelConfig;
@@ -86,6 +102,12 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
         position: "top-center",
       });
       setWasTraining(false);
+      refreshDataset();
+    } else if (modelState == "failed") {
+      toast.error(t("toast.error.trainingFailed"), {
+        position: "top-center",
+      });
+      setWasTraining(false);
     }
     // only refresh when modelState changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -96,11 +118,26 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
   const { data: trainImages, mutate: refreshTrain } = useSWR<string[]>(
     `classification/${model.name}/train`,
   );
-  const { data: dataset, mutate: refreshDataset } = useSWR<{
-    [id: string]: string[];
+  const { data: datasetResponse, mutate: refreshDataset } = useSWR<{
+    categories: { [id: string]: string[] };
+    training_metadata: {
+      has_trained: boolean;
+      last_training_date: string | null;
+      last_training_image_count: number;
+      current_image_count: number;
+      new_images_count: number;
+    } | null;
   }>(`classification/${model.name}/dataset`);
 
+  const dataset = datasetResponse?.categories || {};
+  const trainingMetadata = datasetResponse?.training_metadata;
+
   const [trainFilter, setTrainFilter] = useApiFilter<TrainFilter>();
+
+  const refreshAll = useCallback(() => {
+    refreshTrain();
+    refreshDataset();
+  }, [refreshTrain, refreshDataset]);
 
   // image multiselect
 
@@ -156,7 +193,7 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
           error.response?.data?.detail ||
           "Unknown error";
 
-        toast.error(t("toast.error.trainingFailed", { errorMessage }), {
+        toast.error(t("toast.error.trainingFailedToStart", { errorMessage }), {
           position: "top-center",
         });
       });
@@ -166,12 +203,44 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
     null,
   );
 
+  const onRename = useCallback(
+    (old_name: string, new_name: string) => {
+      axios
+        .put(`/classification/${model.name}/dataset/${old_name}/rename`, {
+          new_category: new_name,
+        })
+        .then((resp) => {
+          if (resp.status == 200) {
+            toast.success(
+              t("toast.success.renamedCategory", { name: new_name }),
+              {
+                position: "top-center",
+              },
+            );
+            setPageToggle(new_name);
+            refreshDataset();
+          }
+        })
+        .catch((error) => {
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.detail ||
+            "Unknown error";
+          toast.error(t("toast.error.renameCategoryFailed", { errorMessage }), {
+            position: "top-center",
+          });
+        });
+    },
+    [model, setPageToggle, refreshDataset, t],
+  );
+
   const onDelete = useCallback(
-    (ids: string[], isName: boolean = false) => {
+    (ids: string[], isName: boolean = false, category?: string) => {
+      const targetCategory = category || pageToggle;
       const api =
-        pageToggle == "train"
+        targetCategory == "train"
           ? `/classification/${model.name}/train/delete`
-          : `/classification/${model.name}/dataset/${pageToggle}/delete`;
+          : `/classification/${model.name}/dataset/${targetCategory}/delete`;
 
       axios
         .post(api, { ids })
@@ -226,30 +295,38 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
 
   // keyboard
 
-  useKeyboardListener(["a", "Escape"], (key, modifiers) => {
-    if (modifiers.repeat || !modifiers.down) {
-      return;
-    }
+  const contentRef = useRef<HTMLDivElement | null>(null);
+  useKeyboardListener(
+    ["a", "Escape"],
+    (key, modifiers) => {
+      if (!modifiers.down) {
+        return true;
+      }
 
-    switch (key) {
-      case "a":
-        if (modifiers.ctrl) {
-          if (selectedImages.length) {
-            setSelectedImages([]);
-          } else {
-            setSelectedImages([
-              ...(pageToggle === "train"
-                ? trainImages || []
-                : dataset?.[pageToggle] || []),
-            ]);
+      switch (key) {
+        case "a":
+          if (modifiers.ctrl && !modifiers.repeat) {
+            if (selectedImages.length) {
+              setSelectedImages([]);
+            } else {
+              setSelectedImages([
+                ...(pageToggle === "train"
+                  ? trainImages || []
+                  : dataset?.[pageToggle] || []),
+              ]);
+            }
+            return true;
           }
-        }
-        break;
-      case "Escape":
-        setSelectedImages([]);
-        break;
-    }
-  });
+          break;
+        case "Escape":
+          setSelectedImages([]);
+          return true;
+      }
+
+      return false;
+    },
+    contentRef,
+  );
 
   useEffect(() => {
     setSelectedImages([]);
@@ -303,31 +380,39 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
       </AlertDialog>
 
       <div className="flex flex-row justify-between gap-2 p-2 align-middle">
-        <div className="flex flex-row items-center justify-center gap-2">
-          <Button
-            className="flex items-center gap-2.5 rounded-lg"
-            aria-label={t("label.back", { ns: "common" })}
-            onClick={() => navigate(-1)}
-          >
-            <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
-            {isDesktop && (
-              <div className="text-primary">
-                {t("button.back", { ns: "common" })}
-              </div>
-            )}
-          </Button>
-          <LibrarySelector
-            pageToggle={pageToggle}
-            dataset={dataset || {}}
-            trainImages={trainImages || []}
-            setPageToggle={setPageToggle}
-            onDelete={onDelete}
-            onRename={() => {}}
-          />
-        </div>
+        {(isDesktop || !selectedImages?.length) && (
+          <div className="flex flex-row items-center justify-center gap-2">
+            <Button
+              className="flex items-center gap-2.5 rounded-lg"
+              aria-label={t("label.back", { ns: "common" })}
+              onClick={() => navigate(-1)}
+            >
+              <IoMdArrowRoundBack className="size-5 text-secondary-foreground" />
+              {isDesktop && (
+                <div className="text-primary">
+                  {t("button.back", { ns: "common" })}
+                </div>
+              )}
+            </Button>
+
+            <LibrarySelector
+              pageToggle={pageToggle}
+              dataset={dataset || {}}
+              trainImages={trainImages || []}
+              setPageToggle={setPageToggle}
+              onDelete={onDelete}
+              onRename={onRename}
+            />
+          </div>
+        )}
         {selectedImages?.length > 0 ? (
-          <div className="flex items-center justify-center gap-2">
-            <div className="mx-1 flex w-48 items-center justify-center text-sm text-muted-foreground">
+          <div
+            className={cn(
+              "flex w-full items-center justify-end gap-2",
+              isMobileOnly && "justify-between",
+            )}
+          >
+            <div className="flex w-48 items-center justify-center text-sm text-muted-foreground">
               <div className="p-1">{`${selectedImages.length} selected`}</div>
               <div className="p-1">{"|"}</div>
               <div
@@ -352,34 +437,66 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
               filterValues={{ classes: Object.keys(dataset || {}) }}
               onUpdateFilter={setTrainFilter}
             />
-            <Button
-              className="flex justify-center gap-2"
-              onClick={trainModel}
-              disabled={modelState != "complete"}
-            >
-              {modelState == "training" ? (
-                <ActivityIndicator size={20} />
-              ) : (
-                <MdAutoFixHigh className="text-secondary-foreground" />
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  className="flex justify-center gap-2"
+                  onClick={trainModel}
+                  variant={modelState == "failed" ? "destructive" : "select"}
+                  disabled={
+                    (modelState != "complete" && modelState != "failed") ||
+                    (trainingMetadata?.new_images_count ?? 0) === 0
+                  }
+                >
+                  {modelState == "training" ? (
+                    <ActivityIndicator size={20} />
+                  ) : (
+                    <HiSparkles className="text-white" />
+                  )}
+                  {isDesktop && (
+                    <>
+                      {t("button.trainModel")}
+                      {trainingMetadata?.new_images_count !== undefined &&
+                        trainingMetadata.new_images_count > 0 && (
+                          <span className="text-sm text-selected-foreground">
+                            ({trainingMetadata.new_images_count})
+                          </span>
+                        )}
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              {((trainingMetadata?.new_images_count ?? 0) === 0 ||
+                (modelState != "complete" && modelState != "failed")) && (
+                <TooltipPortal>
+                  <TooltipContent>
+                    {modelState == "training"
+                      ? t("tooltip.trainingInProgress")
+                      : trainingMetadata?.new_images_count === 0
+                        ? t("tooltip.noNewImages")
+                        : t("tooltip.modelNotReady")}
+                  </TooltipContent>
+                </TooltipPortal>
               )}
-              {isDesktop && t("button.trainModel")}
-            </Button>
+            </Tooltip>
           </div>
         )}
       </div>
       {pageToggle == "train" ? (
         <TrainGrid
           model={model}
+          contentRef={contentRef}
           classes={Object.keys(dataset || {})}
           trainImages={trainImages || []}
           trainFilter={trainFilter}
           selectedImages={selectedImages}
-          onRefresh={refreshTrain}
+          onRefresh={refreshAll}
           onClickImages={onClickImages}
           onDelete={onDelete}
         />
       ) : (
         <DatasetGrid
+          contentRef={contentRef}
           modelName={model.name}
           categoryName={pageToggle}
           images={dataset?.[pageToggle] || []}
@@ -397,7 +514,7 @@ type LibrarySelectorProps = {
   dataset: { [id: string]: string[] };
   trainImages: string[];
   setPageToggle: (toggle: string) => void;
-  onDelete: (ids: string[], isName: boolean) => void;
+  onDelete: (ids: string[], isName: boolean, category?: string) => void;
   onRename: (old_name: string, new_name: string) => void;
 };
 function LibrarySelector({
@@ -409,15 +526,31 @@ function LibrarySelector({
   onRename,
 }: LibrarySelectorProps) {
   const { t } = useTranslation(["views/classificationModel"]);
-  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-  const [renameClass, setRenameFace] = useState<string | null>(null);
 
-  const handleDeleteFace = useCallback(
+  // data
+
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [renameClass, setRenameClass] = useState<string | null>(null);
+  const pageTitle = useMemo(() => {
+    if (pageToggle != "train") {
+      return pageToggle;
+    }
+
+    if (isMobileOnly) {
+      return t("train.titleShort");
+    }
+
+    return t("train.title");
+  }, [pageToggle, t]);
+
+  // interaction
+
+  const handleDeleteCategory = useCallback(
     (name: string) => {
-      // Get all image IDs for this face
+      // Get all image IDs for this category
       const imageIds = dataset?.[name] || [];
 
-      onDelete(imageIds, true);
+      onDelete(imageIds, true, name);
       setPageToggle("train");
     },
     [dataset, onDelete, setPageToggle],
@@ -425,7 +558,7 @@ function LibrarySelector({
 
   const handleSetOpen = useCallback(
     (open: boolean) => {
-      setRenameFace(open ? renameClass : null);
+      setRenameClass(open ? renameClass : null);
     },
     [renameClass],
   );
@@ -452,7 +585,7 @@ function LibrarySelector({
               className="text-white"
               onClick={() => {
                 if (confirmDelete) {
-                  handleDeleteFace(confirmDelete);
+                  handleDeleteCategory(confirmDelete);
                   setConfirmDelete(null);
                 }
               }}
@@ -470,17 +603,17 @@ function LibrarySelector({
         description={t("renameCategory.desc", { name: renameClass })}
         onSave={(newName) => {
           onRename(renameClass!, newName);
-          setRenameFace(null);
+          setRenameClass(null);
         }}
         defaultValue={renameClass || ""}
         regexPattern={/^[\p{L}\p{N}\s'_-]{1,50}$/u}
         regexErrorMessage={t("description.invalidName")}
       />
 
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button className="flex justify-between smart-capitalize">
-            {pageToggle == "train" ? t("train.title") : pageToggle}
+            {pageTitle}
             <span className="ml-2 text-primary-variant">
               (
               {(pageToggle &&
@@ -528,48 +661,50 @@ function LibrarySelector({
                   ({dataset?.[id].length})
                 </span>
               </div>
-              <div className="flex gap-0.5">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setRenameFace(id);
-                      }}
-                    >
-                      <LuPencil className="size-4 text-primary" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipPortal>
-                    <TooltipContent>
-                      {t("button.renameCategory")}
-                    </TooltipContent>
-                  </TooltipPortal>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmDelete(id);
-                      }}
-                    >
-                      <LuTrash2 className="size-4 text-destructive" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipPortal>
-                    <TooltipContent>
-                      {t("button.deleteCategory")}
-                    </TooltipContent>
-                  </TooltipPortal>
-                </Tooltip>
-              </div>
+              {id != "none" && (
+                <div className="flex gap-0.5">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenameClass(id);
+                        }}
+                      >
+                        <LuPencil className="size-4 text-primary" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>
+                        {t("button.renameCategory")}
+                      </TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDelete(id);
+                        }}
+                      >
+                        <LuTrash2 className="size-4 text-destructive" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>
+                        {t("button.deleteCategory")}
+                      </TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
+                </div>
+              )}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
@@ -579,6 +714,7 @@ function LibrarySelector({
 }
 
 type DatasetGridProps = {
+  contentRef: MutableRefObject<HTMLDivElement | null>;
   modelName: string;
   categoryName: string;
   images: string[];
@@ -587,6 +723,7 @@ type DatasetGridProps = {
   onDelete: (ids: string[]) => void;
 };
 function DatasetGrid({
+  contentRef,
   modelName,
   categoryName,
   images,
@@ -602,54 +739,38 @@ function DatasetGrid({
   );
 
   return (
-    <div className="flex flex-wrap gap-2 overflow-y-auto p-2">
+    <div
+      ref={contentRef}
+      className="scrollbar-container grid grid-cols-2 gap-2 overflow-y-scroll p-1 md:grid-cols-4 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12"
+    >
       {classData.map((image) => (
-        <div
-          className={cn(
-            "flex w-60 cursor-pointer flex-col gap-2 rounded-lg bg-card outline outline-[3px]",
-            selectedImages.includes(image)
-              ? "shadow-selected outline-selected"
-              : "outline-transparent duration-500",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-
-            if (e.ctrlKey || e.metaKey) {
-              onClickImages([image], true);
-            }
-          }}
-        >
-          <div
-            className={cn(
-              "w-full overflow-hidden p-2 *:text-card-foreground",
-              isMobile && "flex justify-center",
-            )}
+        <div key={image} className="aspect-square w-full">
+          <ClassificationCard
+            data={{
+              filename: image,
+              filepath: `clips/${modelName}/dataset/${categoryName}/${image}`,
+              name: "",
+            }}
+            showArea={false}
+            selected={selectedImages.includes(image)}
+            i18nLibrary="views/classificationModel"
+            onClick={(data, _) => onClickImages([data.filename], true)}
           >
-            <img
-              className="rounded-lg"
-              src={`${baseUrl}clips/${modelName}/dataset/${categoryName}/${image}`}
-            />
-          </div>
-          <div className="rounded-b-lg bg-card p-3">
-            <div className="flex w-full flex-row items-center justify-between gap-2">
-              <div className="flex w-full flex-row items-start justify-end gap-5 md:gap-4">
-                <Tooltip>
-                  <TooltipTrigger>
-                    <LuTrash2
-                      className="size-5 cursor-pointer text-primary-variant hover:text-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete([image]);
-                      }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t("button.deleteClassificationAttempts")}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
+            <Tooltip>
+              <TooltipTrigger>
+                <LuTrash2
+                  className="size-5 cursor-pointer text-primary-variant hover:text-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete([image]);
+                  }}
+                />
+              </TooltipTrigger>
+              <TooltipContent>
+                {t("button.deleteClassificationAttempts")}
+              </TooltipContent>
+            </Tooltip>
+          </ClassificationCard>
         </div>
       ))}
     </div>
@@ -658,6 +779,7 @@ function DatasetGrid({
 
 type TrainGridProps = {
   model: CustomClassificationModelConfig;
+  contentRef: MutableRefObject<HTMLDivElement | null>;
   classes: string[];
   trainImages: string[];
   trainFilter?: TrainFilter;
@@ -668,6 +790,7 @@ type TrainGridProps = {
 };
 function TrainGrid({
   model,
+  contentRef,
   classes,
   trainImages,
   trainFilter,
@@ -676,20 +799,19 @@ function TrainGrid({
   onRefresh,
   onDelete,
 }: TrainGridProps) {
-  const { t } = useTranslation(["views/classificationModel"]);
-
-  const trainData = useMemo(
+  const trainData = useMemo<ClassificationItemData[]>(
     () =>
       trainImages
         .map((raw) => {
           const parts = raw.replaceAll(".webp", "").split("-");
-          const rawScore = Number.parseFloat(parts[2]);
+          const rawScore = Number.parseFloat(parts[4]);
           return {
-            raw,
-            timestamp: parts[0],
-            label: parts[1],
-            score: rawScore * 100,
-            truePositive: rawScore >= model.threshold,
+            filename: raw,
+            filepath: `clips/${model.name}/train/${raw}`,
+            timestamp: Number.parseFloat(parts[2]),
+            eventId: `${parts[0]}-${parts[1]}`,
+            name: parts[3],
+            score: rawScore,
           };
         })
         .filter((data) => {
@@ -697,109 +819,262 @@ function TrainGrid({
             return true;
           }
 
-          if (
-            trainFilter.classes &&
-            !trainFilter.classes.includes(data.label)
-          ) {
+          if (trainFilter.classes && !trainFilter.classes.includes(data.name)) {
             return false;
           }
 
-          if (
-            trainFilter.min_score &&
-            trainFilter.min_score > data.score / 100.0
-          ) {
+          if (trainFilter.min_score && trainFilter.min_score > data.score) {
             return false;
           }
 
-          if (
-            trainFilter.max_score &&
-            trainFilter.max_score < data.score / 100.0
-          ) {
+          if (trainFilter.max_score && trainFilter.max_score < data.score) {
             return false;
           }
 
           return true;
         })
-        .sort((a, b) => b.timestamp.localeCompare(a.timestamp)),
+        .sort((a, b) => b.timestamp - a.timestamp),
     [model, trainImages, trainFilter],
   );
 
+  if (model.state_config) {
+    return (
+      <StateTrainGrid
+        model={model}
+        contentRef={contentRef}
+        classes={classes}
+        trainData={trainData}
+        selectedImages={selectedImages}
+        onClickImages={onClickImages}
+        onRefresh={onRefresh}
+        onDelete={onDelete}
+      />
+    );
+  }
+
+  return (
+    <ObjectTrainGrid
+      model={model}
+      contentRef={contentRef}
+      classes={classes}
+      trainData={trainData}
+      selectedImages={selectedImages}
+      onClickImages={onClickImages}
+      onRefresh={onRefresh}
+    />
+  );
+}
+
+type StateTrainGridProps = {
+  model: CustomClassificationModelConfig;
+  contentRef: MutableRefObject<HTMLDivElement | null>;
+  classes: string[];
+  trainData?: ClassificationItemData[];
+  selectedImages: string[];
+  onClickImages: (images: string[], ctrl: boolean) => void;
+  onRefresh: () => void;
+  onDelete: (ids: string[]) => void;
+};
+function StateTrainGrid({
+  model,
+  contentRef,
+  classes,
+  trainData,
+  selectedImages,
+  onClickImages,
+  onRefresh,
+}: StateTrainGridProps) {
+  const threshold = useMemo(() => {
+    return {
+      recognition: model.threshold,
+      unknown: model.threshold,
+    };
+  }, [model]);
+
   return (
     <div
+      ref={contentRef}
       className={cn(
-        "flex flex-wrap gap-2 overflow-y-auto p-2",
-        isMobile && "justify-center",
+        "scrollbar-container grid grid-cols-2 gap-3 overflow-y-scroll p-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12",
       )}
     >
       {trainData?.map((data) => (
-        <div
-          key={data.timestamp}
-          className={cn(
-            "flex w-56 cursor-pointer flex-col gap-2 rounded-lg bg-card outline outline-[3px]",
-            selectedImages.includes(data.raw)
-              ? "shadow-selected outline-selected"
-              : "outline-transparent duration-500",
-            isMobile && "w-[48%]",
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClickImages([data.raw], e.ctrlKey || e.metaKey);
-          }}
-        >
-          <div
-            className={cn(
-              "w-full overflow-hidden p-2 *:text-card-foreground",
-              isMobile && "flex justify-center",
-            )}
+        <div key={data.filename} className="aspect-square w-full">
+          <ClassificationCard
+            data={data}
+            threshold={threshold}
+            selected={selectedImages.includes(data.filename)}
+            i18nLibrary="views/classificationModel"
+            showArea={false}
+            onClick={(data, meta) => onClickImages([data.filename], meta)}
           >
-            <img
-              className="w-56 rounded-lg"
-              src={`${baseUrl}clips/${model.name}/train/${data.raw}`}
-            />
-          </div>
-          <div className="rounded-b-lg bg-card p-3">
-            <div className="flex w-full flex-row items-center justify-between gap-2">
-              <div className="flex flex-col items-start text-xs text-primary-variant">
-                <div className="smart-capitalize">
-                  {data.label.replaceAll("_", " ")}
-                </div>
-                <div
-                  className={cn(
-                    "",
-                    data.truePositive ? "text-success" : "text-danger",
-                  )}
-                >
-                  {data.score}%
-                </div>
-              </div>
-              <div className="flex flex-row items-start justify-end gap-5 md:gap-4">
-                <ClassificationSelectionDialog
-                  classes={classes}
-                  modelName={model.name}
-                  image={data.raw}
-                  onRefresh={onRefresh}
-                >
-                  <TbCategoryPlus className="size-5 cursor-pointer text-primary-variant hover:text-primary" />
-                </ClassificationSelectionDialog>
-                <Tooltip>
-                  <TooltipTrigger>
-                    <LuTrash2
-                      className="size-5 cursor-pointer text-primary-variant hover:text-primary"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete([data.raw]);
-                      }}
-                    />
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {t("button.deleteClassificationAttempts")}
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-            </div>
-          </div>
+            <ClassificationSelectionDialog
+              classes={classes}
+              modelName={model.name}
+              image={data.filename}
+              onRefresh={onRefresh}
+            >
+              <BlurredIconButton>
+                <TbCategoryPlus className="size-5" />
+              </BlurredIconButton>
+            </ClassificationSelectionDialog>
+          </ClassificationCard>
         </div>
       ))}
     </div>
+  );
+}
+
+type ObjectTrainGridProps = {
+  model: CustomClassificationModelConfig;
+  contentRef: MutableRefObject<HTMLDivElement | null>;
+  classes: string[];
+  trainData?: ClassificationItemData[];
+  selectedImages: string[];
+  onClickImages: (images: string[], ctrl: boolean) => void;
+  onRefresh: () => void;
+};
+function ObjectTrainGrid({
+  model,
+  contentRef,
+  classes,
+  trainData,
+  selectedImages,
+  onClickImages,
+  onRefresh,
+}: ObjectTrainGridProps) {
+  // item data
+
+  const groups = useMemo(() => {
+    const groups: { [eventId: string]: ClassificationItemData[] } = {};
+
+    trainData
+      ?.sort((a, b) => a.eventId!.localeCompare(b.eventId!))
+      .reverse()
+      .forEach((data) => {
+        if (groups[data.eventId!]) {
+          groups[data.eventId!].push(data);
+        } else {
+          groups[data.eventId!] = [data];
+        }
+      });
+
+    return groups;
+  }, [trainData]);
+
+  const eventIdsQuery = useMemo(() => Object.keys(groups).join(","), [groups]);
+
+  const { data: events } = useSWR<Event[]>([
+    "event_ids",
+    { ids: eventIdsQuery },
+  ]);
+
+  const threshold = useMemo(() => {
+    return {
+      recognition: model.threshold,
+      unknown: model.threshold,
+    };
+  }, [model]);
+
+  // selection
+
+  const [selectedEvent, setSelectedEvent] = useState<Event>();
+  const [dialogTab, setDialogTab] = useState<SearchTab>("snapshot");
+
+  // handlers
+
+  const handleClickEvent = useCallback(
+    (
+      group: ClassificationItemData[],
+      event: Event | undefined,
+      meta: boolean,
+    ) => {
+      if (event && selectedImages.length == 0 && !meta) {
+        setSelectedEvent(event);
+      } else {
+        const anySelected =
+          group.find((item) => selectedImages.includes(item.filename)) !=
+          undefined;
+
+        if (anySelected) {
+          // deselect all
+          const toDeselect: string[] = [];
+          group.forEach((item) => {
+            if (selectedImages.includes(item.filename)) {
+              toDeselect.push(item.filename);
+            }
+          });
+          onClickImages(toDeselect, false);
+        } else {
+          // select all
+          onClickImages(
+            group.map((item) => item.filename),
+            true,
+          );
+        }
+      }
+    },
+    [selectedImages, onClickImages],
+  );
+
+  return (
+    <>
+      <SearchDetailDialog
+        search={
+          selectedEvent ? (selectedEvent as unknown as SearchResult) : undefined
+        }
+        page={dialogTab}
+        setSimilarity={undefined}
+        setSearchPage={setDialogTab}
+        setSearch={(search) => setSelectedEvent(search as unknown as Event)}
+        setInputFocused={() => {}}
+      />
+
+      <div
+        ref={contentRef}
+        className={cn(
+          "scrollbar-container grid grid-cols-2 gap-3 overflow-y-scroll p-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 3xl:grid-cols-12",
+        )}
+      >
+        {Object.entries(groups).map(([key, group]) => {
+          const event = events?.find((ev) => ev.id == key);
+          return (
+            <div key={key} className="aspect-square w-full">
+              <GroupedClassificationCard
+                group={group}
+                event={event}
+                threshold={threshold}
+                selectedItems={selectedImages}
+                i18nLibrary="views/classificationModel"
+                objectType={model.object_config?.objects?.at(0) ?? "Object"}
+                noClassificationLabel="details.none"
+                onClick={(data) => {
+                  if (data) {
+                    onClickImages([data.filename], true);
+                  } else {
+                    handleClickEvent(group, event, true);
+                  }
+                }}
+              >
+                {(data) => (
+                  <>
+                    <ClassificationSelectionDialog
+                      classes={classes}
+                      modelName={model.name}
+                      image={data.filename}
+                      onRefresh={onRefresh}
+                    >
+                      <BlurredIconButton>
+                        <TbCategoryPlus className="size-5" />
+                      </BlurredIconButton>
+                    </ClassificationSelectionDialog>
+                  </>
+                )}
+              </GroupedClassificationCard>
+            </div>
+          );
+        })}
+      </div>
+    </>
   );
 }

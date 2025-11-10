@@ -24,17 +24,21 @@ function Live() {
   // selection
 
   const [selectedCameraName, setSelectedCameraName] = useHashState();
-  const [cameraGroup, setCameraGroup] = usePersistedOverlayState(
+  const [cameraGroup, setCameraGroup, loaded, ,] = usePersistedOverlayState(
     "cameraGroup",
     "default" as string,
   );
 
   useSearchEffect("group", (cameraGroup) => {
-    if (config && cameraGroup) {
+    if (config && cameraGroup && loaded) {
       const group = config.camera_groups[cameraGroup];
 
       if (group) {
         setCameraGroup(cameraGroup);
+        // return false so that url cleanup doesn't occur here.
+        // will be cleaned up by usePersistedOverlayState in the
+        // camera group selector so that the icon switches correctly
+        return false;
       }
 
       return true;
@@ -52,14 +56,16 @@ function Live() {
 
   useKeyboardListener(["f"], (key, modifiers) => {
     if (!modifiers.down) {
-      return;
+      return true;
     }
 
     switch (key) {
       case "f":
         toggleFullscreen();
-        break;
+        return true;
     }
+
+    return false;
   });
 
   // document title
@@ -142,6 +148,7 @@ function Live() {
         />
       ) : selectedCamera ? (
         <LiveCameraView
+          key={selectedCameraName}
           config={config}
           camera={selectedCamera}
           supportsFullscreen={supportsFullScreen}

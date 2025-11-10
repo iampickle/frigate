@@ -14,7 +14,6 @@ from pathlib import Path as FilePath
 from typing import Any, Dict, List, Optional
 
 import aiofiles
-import requests
 import ruamel.yaml
 from fastapi import APIRouter, Body, Path, Request, Response
 from fastapi.encoders import jsonable_encoder
@@ -38,18 +37,17 @@ from frigate.stats.prometheus import get_metrics, update_metrics
 from frigate.util.builtin import (
     clean_camera_user_pass,
     flatten_config_data,
-    get_tz_modifiers,
     process_config_query_string,
     update_yaml_file_bulk,
 )
 from frigate.util.config import find_config_file
 from frigate.util.services import (
-    ffprobe_stream,
     get_nvidia_driver_info,
     process_logs,
     restart_frigate,
     vainfo_hwaccel,
 )
+from frigate.util.time import get_tz_modifiers
 from frigate.version import VERSION
 
 logger = logging.getLogger(__name__)
@@ -68,43 +66,6 @@ def config_schema(request: Request):
     return Response(
         content=request.app.frigate_config.schema_json(), media_type="application/json"
     )
-
-
-@router.get("/go2rtc/streams")
-def go2rtc_streams():
-    r = requests.get("http://127.0.0.1:1984/api/streams")
-    if not r.ok:
-        logger.error("Failed to fetch streams from go2rtc")
-        return JSONResponse(
-            content=({"success": False, "message": "Error fetching stream data"}),
-            status_code=500,
-        )
-    stream_data = r.json()
-    for data in stream_data.values():
-        for producer in data.get("producers") or []:
-            producer["url"] = clean_camera_user_pass(producer.get("url", ""))
-    return JSONResponse(content=stream_data)
-
-
-@router.get("/go2rtc/streams/{camera_name}")
-def go2rtc_camera_stream(request: Request, camera_name: str):
-    r = requests.get(
-        f"http://127.0.0.1:1984/api/streams?src={camera_name}&video=all&audio=all&microphone"
-    )
-    if not r.ok:
-        camera_config = request.app.frigate_config.cameras.get(camera_name)
-
-        if camera_config and camera_config.enabled:
-            logger.error("Failed to fetch streams from go2rtc")
-
-        return JSONResponse(
-            content=({"success": False, "message": "Error fetching stream data"}),
-            status_code=500,
-        )
-    stream_data = r.json()
-    for producer in stream_data.get("producers", []):
-        producer["url"] = clean_camera_user_pass(producer.get("url", ""))
-    return JSONResponse(content=stream_data)
 
 
 @router.get("/version", response_class=PlainTextResponse)
@@ -426,20 +387,29 @@ def config_set(request: Request, body: AppConfigSetBody):
         old_config: FrigateConfig = request.app.frigate_config
         request.app.frigate_config = config
 
-        if body.update_topic and body.update_topic.startswith("config/cameras/"):
-            _, _, camera, field = body.update_topic.split("/")
+        if body.update_topic:
+            if body.update_topic.startswith("config/cameras/"):
+                _, _, camera, field = body.update_topic.split("/")
 
-            if field == "add":
-                settings = config.cameras[camera]
-            elif field == "remove":
-                settings = old_config.cameras[camera]
+                if field == "add":
+                    settings = config.cameras[camera]
+                elif field == "remove":
+                    settings = old_config.cameras[camera]
+                else:
+                    settings = config.get_nested_object(body.update_topic)
+
+                request.app.config_publisher.publish_update(
+                    CameraConfigUpdateTopic(CameraConfigUpdateEnum[field], camera),
+                    settings,
+                )
             else:
+                # Generic handling for global config updates
                 settings = config.get_nested_object(body.update_topic)
 
-            request.app.config_publisher.publish_update(
-                CameraConfigUpdateTopic(CameraConfigUpdateEnum[field], camera),
-                settings,
-            )
+                # Publish None for removal, actual config for add/update
+                request.app.config_publisher.publisher.publish(
+                    body.update_topic, settings
+                )
 
     return JSONResponse(
         content=(
@@ -450,66 +420,6 @@ def config_set(request: Request, body: AppConfigSetBody):
         ),
         status_code=200,
     )
-
-
-@router.get("/ffprobe")
-def ffprobe(request: Request, paths: str = ""):
-    path_param = paths
-
-    if not path_param:
-        return JSONResponse(
-            content=({"success": False, "message": "Path needs to be provided."}),
-            status_code=404,
-        )
-
-    if path_param.startswith("camera"):
-        camera = path_param[7:]
-
-        if camera not in request.app.frigate_config.cameras.keys():
-            return JSONResponse(
-                content=(
-                    {"success": False, "message": f"{camera} is not a valid camera."}
-                ),
-                status_code=404,
-            )
-
-        if not request.app.frigate_config.cameras[camera].enabled:
-            return JSONResponse(
-                content=({"success": False, "message": f"{camera} is not enabled."}),
-                status_code=404,
-            )
-
-        paths = map(
-            lambda input: input.path,
-            request.app.frigate_config.cameras[camera].ffmpeg.inputs,
-        )
-    elif "," in clean_camera_user_pass(path_param):
-        paths = path_param.split(",")
-    else:
-        paths = [path_param]
-
-    # user has multiple streams
-    output = []
-
-    for path in paths:
-        ffprobe = ffprobe_stream(request.app.frigate_config.ffmpeg, path.strip())
-        output.append(
-            {
-                "return_code": ffprobe.returncode,
-                "stderr": (
-                    ffprobe.stderr.decode("unicode_escape").strip()
-                    if ffprobe.returncode != 0
-                    else ""
-                ),
-                "stdout": (
-                    json.loads(ffprobe.stdout.decode("unicode_escape").strip())
-                    if ffprobe.returncode == 0
-                    else ""
-                ),
-            }
-        )
-
-    return JSONResponse(content=output)
 
 
 @router.get("/vainfo")
@@ -787,7 +697,11 @@ def timeline(camera: str = "all", limit: int = 100, source_id: Optional[str] = N
         clauses.append((Timeline.camera == camera))
 
     if source_id:
-        clauses.append((Timeline.source_id == source_id))
+        source_ids = [sid.strip() for sid in source_id.split(",")]
+        if len(source_ids) == 1:
+            clauses.append((Timeline.source_id == source_ids[0]))
+        else:
+            clauses.append((Timeline.source_id.in_(source_ids)))
 
     if len(clauses) == 0:
         clauses.append((True))

@@ -30,7 +30,7 @@ type FrigateObjectState = {
 };
 
 export interface FrigateReview {
-  type: "new" | "update" | "end";
+  type: "new" | "update" | "end" | "genai";
   before: ReviewSegment;
   after: ReviewSegment;
 }
@@ -87,7 +87,8 @@ export type ModelState =
   | "downloaded"
   | "error"
   | "training"
-  | "complete";
+  | "complete"
+  | "failed";
 
 export type EmbeddingsReindexProgressType = {
   thumbnails: number;

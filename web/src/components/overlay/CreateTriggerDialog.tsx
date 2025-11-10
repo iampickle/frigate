@@ -47,6 +47,7 @@ import {
   MobilePageHeader,
   MobilePageTitle,
 } from "../mobile/MobilePage";
+import NameAndIdFields from "@/components/input/NameAndIdFields";
 
 type CreateTriggerDialogProps = {
   show: boolean;
@@ -60,6 +61,7 @@ type CreateTriggerDialogProps = {
     data: string,
     threshold: number,
     actions: TriggerAction[],
+    friendly_name: string,
   ) => void;
   onEdit: (trigger: Trigger) => void;
   onCancel: () => void;
@@ -77,6 +79,15 @@ export default function CreateTriggerDialog({
   const { t } = useTranslation("views/settings");
   const { data: config } = useSWR<FrigateConfig>("config");
 
+  const availableActions = useMemo(() => {
+    if (!config) return [];
+
+    if (config.cameras[selectedCamera].notifications.enabled_in_config) {
+      return ["notification", "sub_label", "attribute"];
+    }
+    return ["sub_label", "attribute"];
+  }, [config, selectedCamera]);
+
   const existingTriggerNames = useMemo(() => {
     if (
       !config ||
@@ -86,6 +97,19 @@ export default function CreateTriggerDialog({
       return [];
     }
     return Object.keys(config.cameras[selectedCamera].semantic_search.triggers);
+  }, [config, selectedCamera]);
+
+  const existingTriggerFriendlyNames = useMemo(() => {
+    if (
+      !config ||
+      !selectedCamera ||
+      !config.cameras[selectedCamera]?.semantic_search?.triggers
+    ) {
+      return [];
+    }
+    return Object.values(
+      config.cameras[selectedCamera].semantic_search.triggers,
+    ).map((trigger) => trigger.friendly_name);
   }, [config, selectedCamera]);
 
   const formSchema = z.object({
@@ -102,13 +126,22 @@ export default function CreateTriggerDialog({
           !existingTriggerNames.includes(value) || value === trigger?.name,
         t("triggers.dialog.form.name.error.alreadyExists"),
       ),
+    friendly_name: z
+      .string()
+      .min(2, t("triggers.dialog.form.name.error.minLength"))
+      .refine(
+        (value) =>
+          !existingTriggerFriendlyNames.includes(value) ||
+          value === trigger?.friendly_name,
+        t("triggers.dialog.form.name.error.alreadyExists"),
+      ),
     type: z.enum(["thumbnail", "description"]),
     data: z.string().min(1, t("triggers.dialog.form.content.error.required")),
     threshold: z
       .number()
       .min(0, t("triggers.dialog.form.threshold.error.min"))
       .max(1, t("triggers.dialog.form.threshold.error.max")),
-    actions: z.array(z.enum(["notification"])),
+    actions: z.array(z.enum(["notification", "sub_label", "attribute"])),
   });
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -117,6 +150,7 @@ export default function CreateTriggerDialog({
     defaultValues: {
       enabled: trigger?.enabled ?? true,
       name: trigger?.name ?? "",
+      friendly_name: trigger?.friendly_name ?? "",
       type: trigger?.type ?? "description",
       data: trigger?.data ?? "",
       threshold: trigger?.threshold ?? 0.5,
@@ -125,7 +159,7 @@ export default function CreateTriggerDialog({
   });
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (trigger) {
+    if (trigger && existingTriggerNames.includes(trigger.name)) {
       onEdit({ ...values });
     } else {
       onCreate(
@@ -135,6 +169,7 @@ export default function CreateTriggerDialog({
         values.data,
         values.threshold,
         values.actions,
+        values.friendly_name,
       );
     }
   };
@@ -144,6 +179,7 @@ export default function CreateTriggerDialog({
       form.reset({
         enabled: true,
         name: "",
+        friendly_name: "",
         type: "description",
         data: "",
         threshold: 0.5,
@@ -154,6 +190,7 @@ export default function CreateTriggerDialog({
         {
           enabled: trigger.enabled,
           name: trigger.name,
+          friendly_name: trigger.friendly_name ?? trigger.name,
           type: trigger.type,
           data: trigger.data,
           threshold: trigger.threshold,
@@ -213,22 +250,15 @@ export default function CreateTriggerDialog({
             onSubmit={form.handleSubmit(onSubmit)}
             className="space-y-5 pt-4"
           >
-            <FormField
+            <NameAndIdFields
+              type="trigger"
               control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("triggers.dialog.form.name.title")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder={t("triggers.dialog.form.name.placeholder")}
-                      className="h-10"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              nameField="friendly_name"
+              idField="name"
+              nameLabel={t("triggers.dialog.form.name.title")}
+              nameDescription={t("triggers.dialog.form.name.description")}
+              placeholderName={t("triggers.dialog.form.name.placeholder")}
+              idVisible={!!trigger}
             />
 
             <FormField
@@ -304,9 +334,6 @@ export default function CreateTriggerDialog({
                           camera={selectedCamera}
                         />
                       </FormControl>
-                      <FormDescription>
-                        {t("triggers.dialog.form.content.imageDesc")}
-                      </FormDescription>
                     </>
                   ) : (
                     <>
@@ -366,7 +393,7 @@ export default function CreateTriggerDialog({
                     {t("triggers.dialog.form.actions.title")}
                   </FormLabel>
                   <div className="space-y-2">
-                    {["notification"].map((action) => (
+                    {availableActions.map((action) => (
                       <div key={action} className="flex items-center space-x-2">
                         <FormControl>
                           <Checkbox
@@ -424,7 +451,7 @@ export default function CreateTriggerDialog({
                   >
                     {isLoading ? (
                       <div className="flex flex-row items-center gap-2">
-                        <ActivityIndicator />
+                        <ActivityIndicator className="size-5" />
                         <span>{t("button.saving", { ns: "common" })}</span>
                       </div>
                     ) : (

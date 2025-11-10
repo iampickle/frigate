@@ -47,7 +47,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useDateLocale } from "@/hooks/use-date-locale";
 import { useIsAdmin } from "@/hooks/use-is-admin";
-import { CameraNameLabel } from "../camera/CameraNameLabel";
+import { CameraNameLabel } from "../camera/FriendlyNameLabel";
 
 type LiveContextMenuProps = {
   className?: string;
@@ -355,9 +355,7 @@ export default function LiveContextMenu({
             <div
               className="flex w-full cursor-pointer items-center justify-start gap-2"
               onClick={
-                isEnabled
-                  ? () => navigate(`/settings?page=debug&camera=${camera}`)
-                  : undefined
+                isEnabled ? () => navigate(`?debug=true#${camera}`) : undefined
               }
             >
               <div className="text-primary">

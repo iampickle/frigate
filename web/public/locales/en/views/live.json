@@ -73,6 +73,12 @@
     "enable": "Enable Snapshots",
     "disable": "Disable Snapshots"
   },
+  "snapshot": {
+    "takeSnapshot": "Download instant snapshot",
+    "noVideoSource": "No video source available for snapshot.",
+    "captureFailed": "Failed to capture snapshot.",
+    "downloadStarted": "Snapshot download started."
+  },
   "audioDetect": {
     "enable": "Enable Audio Detect",
     "disable": "Disable Audio Detect"
@@ -90,8 +96,8 @@
     "disable": "Hide Stream Stats"
   },
   "manualRecording": {
-    "title": "On-Demand Recording",
-    "tips": "Start a manual event based on this camera's recording retention settings.",
+    "title": "On-Demand",
+    "tips": "Download an instant snapshot or start a manual event based on this camera's recording retention settings.",
     "playInBackground": {
       "label": "Play in background",
       "desc": "Enable this option to continue streaming when the player is hidden."
@@ -123,6 +129,9 @@
       },
       "available": "Audio is available for this stream",
       "unavailable": "Audio is not available for this stream"
+    },
+    "debug": {
+      "picker": "Stream selection unavailable in debug mode. Debug view always uses the stream assigned the detect role."
     },
     "twoWayTalk": {
       "tips": "Your device must support the feature and WebRTC must be configured for two-way talk.",
@@ -156,8 +165,7 @@
       "all": "All",
       "motion": "Motion",
       "active_objects": "Active Objects"
-    },
-    "notAllTips": "Your {{source}} recording retention configuration is set to <code>mode: {{effectiveRetainMode}}</code>, so this on-demand recording will only keep segments with {{effectiveRetainModeName}}."
+    }
   },
   "editLayout": {
     "label": "Edit Layout",
@@ -165,5 +173,10 @@
       "label": "Edit Camera Group"
     },
     "exitEdit": "Exit Editing"
+  },
+  "noCameras": {
+    "title": "No Cameras Configured",
+    "description": "Get started by connecting a camera to Frigate.",
+    "buttonText": "Add Camera"
   }
 }

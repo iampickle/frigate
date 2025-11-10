@@ -19,6 +19,7 @@ export type ReviewData = {
   significant_motion_areas: number[];
   zones: string[];
   metadata?: {
+    title: string;
     scene: string;
     confidence: number;
     potential_threat_level?: number;
@@ -79,6 +80,11 @@ export type ConsolidatedSegmentData = {
 };
 
 export type TimelineZoomDirection = "in" | "out" | null;
+
+export type ZoomLevel = {
+  segmentDuration: number;
+  timestampSpread: number;
+};
 
 export enum ThreatLevel {
   SUSPICIOUS = 1,

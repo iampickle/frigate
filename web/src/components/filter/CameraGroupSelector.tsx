@@ -76,7 +76,7 @@ import { CameraStreamingDialog } from "../settings/CameraStreamingDialog";
 import { DialogTrigger } from "@radix-ui/react-dialog";
 import { useStreamingSettings } from "@/context/streaming-settings-provider";
 import { Trans, useTranslation } from "react-i18next";
-import { CameraNameLabel } from "../camera/CameraNameLabel";
+import { CameraNameLabel } from "../camera/FriendlyNameLabel";
 import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useIsCustomRole } from "@/hooks/use-is-custom-role";
 
@@ -109,7 +109,7 @@ export function CameraGroupSelector({ className }: CameraGroupSelectorProps) {
 
   // groups
 
-  const [group, setGroup, deleteGroup] = usePersistedOverlayState(
+  const [group, setGroup, , deleteGroup] = usePersistedOverlayState(
     "cameraGroup",
     "default" as string,
   );

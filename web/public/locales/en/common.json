@@ -82,10 +82,32 @@
     "length": {
       "feet": "feet",
       "meters": "meters"
+    },
+    "data": {
+      "kbps": "kB/s",
+      "mbps": "MB/s",
+      "gbps": "GB/s",
+      "kbph": "kB/hour",
+      "mbph": "MB/hour",
+      "gbph": "GB/hour"
     }
   },
   "label": {
-    "back": "Go back"
+    "back": "Go back",
+    "hide": "Hide {{item}}",
+    "show": "Show {{item}}",
+    "ID": "ID",
+    "none": "None",
+    "all": "All"
+  },
+  "list": {
+    "two": "{{0}} and {{1}}",
+    "many": "{{items}}, and {{last}}",
+    "separatorWithSpace": ", "
+  },
+  "field": {
+    "optional": "Optional",
+    "internalID": "The Internal ID Frigate uses in the configuration and database"
   },
   "button": {
     "apply": "Apply",
@@ -263,5 +285,8 @@
     "desc": "Page not found"
   },
   "selectItem": "Select {{item}}",
-  "readTheDocumentation": "Read the documentation"
+  "readTheDocumentation": "Read the documentation",
+  "information": {
+    "pixels": "{{area}}px"
+  }
 }

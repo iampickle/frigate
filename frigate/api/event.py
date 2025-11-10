@@ -2,6 +2,7 @@
 
 import base64
 import datetime
+import json
 import logging
 import os
 import random
@@ -57,15 +58,20 @@ from frigate.const import CLIPS_DIR, TRIGGER_DIR
 from frigate.embeddings import EmbeddingsContext
 from frigate.models import Event, ReviewSegment, Timeline, Trigger
 from frigate.track.object_processing import TrackedObject
-from frigate.util.builtin import get_tz_modifiers
-from frigate.util.path import get_event_thumbnail_bytes
+from frigate.util.file import get_event_thumbnail_bytes
+from frigate.util.time import get_dst_transitions, get_tz_modifiers
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=[Tags.events])
 
 
-@router.get("/events", response_model=list[EventResponse])
+@router.get(
+    "/events",
+    response_model=list[EventResponse],
+    summary="Get events",
+    description="Returns a list of events.",
+)
 def events(
     params: EventsQueryParams = Depends(),
     allowed_cameras: List[str] = Depends(get_allowed_cameras_for_filter),
@@ -334,7 +340,14 @@ def events(
     return JSONResponse(content=list(events))
 
 
-@router.get("/events/explore", response_model=list[EventResponse])
+@router.get(
+    "/events/explore",
+    response_model=list[EventResponse],
+    summary="Get summary of objects.",
+    description="""Gets a summary of objects from the database.
+    Returns a list of objects with a max of `limit` objects for each label.
+    """,
+)
 def events_explore(
     limit: int = 10,
     allowed_cameras: List[str] = Depends(get_allowed_cameras_for_filter),
@@ -419,7 +432,14 @@ def events_explore(
     return JSONResponse(content=processed_events)
 
 
-@router.get("/event_ids", response_model=list[EventResponse])
+@router.get(
+    "/event_ids",
+    response_model=list[EventResponse],
+    summary="Get events by ids.",
+    description="""Gets events by a list of ids.
+    Returns a list of events.
+    """,
+)
 async def event_ids(ids: str, request: Request):
     ids = ids.split(",")
 
@@ -434,10 +454,8 @@ async def event_ids(ids: str, request: Request):
             event = Event.get(Event.id == event_id)
             await require_camera_access(event.camera, request=request)
         except DoesNotExist:
-            return JSONResponse(
-                content=({"success": False, "message": f"Event {event_id} not found"}),
-                status_code=404,
-            )
+            # we should not fail the entire request if an event is not found
+            continue
 
     try:
         events = Event.select().where(Event.id << ids).dicts().iterator()
@@ -448,7 +466,13 @@ async def event_ids(ids: str, request: Request):
         )
 
 
-@router.get("/events/search")
+@router.get(
+    "/events/search",
+    summary="Search events.",
+    description="""Searches for events in the database.
+    Returns a list of events.
+    """,
+)
 def events_search(
     request: Request,
     params: EventsSearchQueryParams = Depends(),
@@ -790,7 +814,6 @@ def events_summary(
     allowed_cameras: List[str] = Depends(get_allowed_cameras_for_filter),
 ):
     tz_name = params.timezone
-    hour_modifier, minute_modifier, seconds_offset = get_tz_modifiers(tz_name)
     has_clip = params.has_clip
     has_snapshot = params.has_snapshot
 
@@ -805,36 +828,99 @@ def events_summary(
     if len(clauses) == 0:
         clauses.append((True))
 
-    groups = (
+    time_range_query = (
         Event.select(
-            Event.camera,
-            Event.label,
-            Event.sub_label,
-            Event.data,
-            fn.strftime(
-                "%Y-%m-%d",
-                fn.datetime(
-                    Event.start_time, "unixepoch", hour_modifier, minute_modifier
-                ),
-            ).alias("day"),
-            Event.zones,
-            fn.COUNT(Event.id).alias("count"),
+            fn.MIN(Event.start_time).alias("min_time"),
+            fn.MAX(Event.start_time).alias("max_time"),
         )
         .where(reduce(operator.and_, clauses) & (Event.camera << allowed_cameras))
-        .group_by(
-            Event.camera,
-            Event.label,
-            Event.sub_label,
-            Event.data,
-            (Event.start_time + seconds_offset).cast("int") / (3600 * 24),
-            Event.zones,
-        )
+        .dicts()
+        .get()
     )
 
-    return JSONResponse(content=[e for e in groups.dicts()])
+    min_time = time_range_query.get("min_time")
+    max_time = time_range_query.get("max_time")
+
+    if min_time is None or max_time is None:
+        return JSONResponse(content=[])
+
+    dst_periods = get_dst_transitions(tz_name, min_time, max_time)
+
+    grouped: dict[tuple, dict] = {}
+
+    for period_start, period_end, period_offset in dst_periods:
+        hours_offset = int(period_offset / 60 / 60)
+        minutes_offset = int(period_offset / 60 - hours_offset * 60)
+        period_hour_modifier = f"{hours_offset} hour"
+        period_minute_modifier = f"{minutes_offset} minute"
+
+        period_groups = (
+            Event.select(
+                Event.camera,
+                Event.label,
+                Event.sub_label,
+                Event.data,
+                fn.strftime(
+                    "%Y-%m-%d",
+                    fn.datetime(
+                        Event.start_time,
+                        "unixepoch",
+                        period_hour_modifier,
+                        period_minute_modifier,
+                    ),
+                ).alias("day"),
+                Event.zones,
+                fn.COUNT(Event.id).alias("count"),
+            )
+            .where(
+                reduce(operator.and_, clauses)
+                & (Event.camera << allowed_cameras)
+                & (Event.start_time >= period_start)
+                & (Event.start_time <= period_end)
+            )
+            .group_by(
+                Event.camera,
+                Event.label,
+                Event.sub_label,
+                Event.data,
+                (Event.start_time + period_offset).cast("int") / (3600 * 24),
+                Event.zones,
+            )
+            .namedtuples()
+        )
+
+        for g in period_groups:
+            key = (
+                g.camera,
+                g.label,
+                g.sub_label,
+                json.dumps(g.data, sort_keys=True) if g.data is not None else None,
+                g.day,
+                json.dumps(g.zones, sort_keys=True) if g.zones is not None else None,
+            )
+
+            if key in grouped:
+                grouped[key]["count"] += int(g.count or 0)
+            else:
+                grouped[key] = {
+                    "camera": g.camera,
+                    "label": g.label,
+                    "sub_label": g.sub_label,
+                    "data": g.data,
+                    "day": g.day,
+                    "zones": g.zones,
+                    "count": int(g.count or 0),
+                }
+
+    return JSONResponse(content=sorted(grouped.values(), key=lambda x: x["day"]))
 
 
-@router.get("/events/{event_id}", response_model=EventResponse)
+@router.get(
+    "/events/{event_id}",
+    response_model=EventResponse,
+    summary="Get event by id.",
+    description="Gets an event by its id.",
+)
 async def event(event_id: str, request: Request):
     try:
         event = Event.get(Event.id == event_id)
@@ -848,6 +934,11 @@ async def event(event_id: str, request: Request):
     "/events/{event_id}/retain",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Set event retain indefinitely.",
+    description="""Sets an event to retain indefinitely.
+    Returns a success message or an error if the event is not found.
+    NOTE: This is a legacy endpoint and is not supported in the frontend.
+    """,
 )
 def set_retain(event_id: str):
     try:
@@ -867,7 +958,14 @@ def set_retain(event_id: str):
     )
 
 
-@router.post("/events/{event_id}/plus", response_model=EventUploadPlusResponse)
+@router.post(
+    "/events/{event_id}/plus",
+    response_model=EventUploadPlusResponse,
+    summary="Send event to Frigate+.",
+    description="""Sends an event to Frigate+.
+    Returns a success message or an error if the event is not found.
+    """,
+)
 async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = None):
     if not request.app.frigate_config.plus_api.is_active():
         message = "PLUS_API_KEY environment variable is not set"
@@ -899,12 +997,12 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
         include_annotation = None
 
     if event.end_time is None:
-        logger.error(f"Unable to load clean png for in-progress event: {event.id}")
+        logger.error(f"Unable to load clean snapshot for in-progress event: {event.id}")
         return JSONResponse(
             content=(
                 {
                     "success": False,
-                    "message": "Unable to load clean png for in-progress event",
+                    "message": "Unable to load clean snapshot for in-progress event",
                 }
             ),
             status_code=400,
@@ -917,24 +1015,44 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
             content=({"success": False, "message": message}), status_code=400
         )
 
-    # load clean.png
+    # load clean.webp or clean.png (legacy)
     try:
-        filename = f"{event.camera}-{event.id}-clean.png"
-        image = cv2.imread(os.path.join(CLIPS_DIR, filename))
+        filename_webp = f"{event.camera}-{event.id}-clean.webp"
+        filename_png = f"{event.camera}-{event.id}-clean.png"
+
+        image_path = None
+        if os.path.exists(os.path.join(CLIPS_DIR, filename_webp)):
+            image_path = os.path.join(CLIPS_DIR, filename_webp)
+        elif os.path.exists(os.path.join(CLIPS_DIR, filename_png)):
+            image_path = os.path.join(CLIPS_DIR, filename_png)
+
+        if image_path is None:
+            logger.error(f"Unable to find clean snapshot for event: {event.id}")
+            return JSONResponse(
+                content=(
+                    {
+                        "success": False,
+                        "message": "Unable to find clean snapshot for event",
+                    }
+                ),
+                status_code=400,
+            )
+
+        image = cv2.imread(image_path)
     except Exception:
-        logger.error(f"Unable to load clean png for event: {event.id}")
+        logger.error(f"Unable to load clean snapshot for event: {event.id}")
         return JSONResponse(
             content=(
-                {"success": False, "message": "Unable to load clean png for event"}
+                {"success": False, "message": "Unable to load clean snapshot for event"}
             ),
             status_code=400,
         )
 
     if image is None or image.size == 0:
-        logger.error(f"Unable to load clean png for event: {event.id}")
+        logger.error(f"Unable to load clean snapshot for event: {event.id}")
         return JSONResponse(
             content=(
-                {"success": False, "message": "Unable to load clean png for event"}
+                {"success": False, "message": "Unable to load clean snapshot for event"}
             ),
             status_code=400,
         )
@@ -980,7 +1098,14 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
     )
 
 
-@router.put("/events/{event_id}/false_positive", response_model=EventUploadPlusResponse)
+@router.put(
+    "/events/{event_id}/false_positive",
+    response_model=EventUploadPlusResponse,
+    summary="Submit false positive to Frigate+",
+    description="""Submit an event as a false positive to Frigate+.
+    This endpoint is the same as the standard Frigate+ submission endpoint,
+    but is specifically for marking an event as a false positive.""",
+)
 async def false_positive(request: Request, event_id: str):
     if not request.app.frigate_config.plus_api.is_active():
         message = "PLUS_API_KEY environment variable is not set"
@@ -1074,6 +1199,11 @@ async def false_positive(request: Request, event_id: str):
     "/events/{event_id}/retain",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Stop event from being retained indefinitely.",
+    description="""Stops an event from being retained indefinitely.
+    Returns a success message or an error if the event is not found.
+    NOTE: This is a legacy endpoint and is not supported in the frontend.
+    """,
 )
 async def delete_retain(event_id: str, request: Request):
     try:
@@ -1098,6 +1228,10 @@ async def delete_retain(event_id: str, request: Request):
     "/events/{event_id}/sub_label",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Set event sub label.",
+    description="""Sets an event's sub label.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 async def set_sub_label(
     request: Request,
@@ -1153,6 +1287,10 @@ async def set_sub_label(
     "/events/{event_id}/recognized_license_plate",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Set event license plate.",
+    description="""Sets an event's license plate.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 async def set_plate(
     request: Request,
@@ -1209,6 +1347,10 @@ async def set_plate(
     "/events/{event_id}/description",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Set event description.",
+    description="""Sets an event's description.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 async def set_description(
     request: Request,
@@ -1261,6 +1403,10 @@ async def set_description(
     "/events/{event_id}/description/regenerate",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Regenerate event description.",
+    description="""Regenerates an event's description.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 async def regenerate_description(
     request: Request, event_id: str, params: RegenerateQueryParameters = Depends()
@@ -1310,6 +1456,10 @@ async def regenerate_description(
     "/description/generate",
     response_model=GenericResponse,
     # dependencies=[Depends(require_role(["admin"]))],
+    summary="Generate description embedding.",
+    description="""Generates an embedding for an event's description.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 def generate_description_embedding(
     request: Request,
@@ -1350,6 +1500,7 @@ async def delete_single_event(event_id: str, request: Request) -> dict:
         snapshot_paths = [
             Path(f"{os.path.join(CLIPS_DIR, media_name)}.jpg"),
             Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.png"),
+            Path(f"{os.path.join(CLIPS_DIR, media_name)}-clean.webp"),
         ]
         for media in snapshot_paths:
             media.unlink(missing_ok=True)
@@ -1370,6 +1521,10 @@ async def delete_single_event(event_id: str, request: Request) -> dict:
     "/events/{event_id}",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Delete event.",
+    description="""Deletes an event from the database.
+    Returns a success message or an error if the event is not found.
+    """,
 )
 async def delete_event(request: Request, event_id: str):
     result = await delete_single_event(event_id, request)
@@ -1381,6 +1536,10 @@ async def delete_event(request: Request, event_id: str):
     "/events/",
     response_model=EventMultiDeleteResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Delete events.",
+    description="""Deletes a list of events from the database.
+    Returns a success message or an error if the events are not found.
+    """,
 )
 async def delete_events(request: Request, body: EventsDeleteBody):
     if not body.event_ids:
@@ -1411,6 +1570,13 @@ async def delete_events(request: Request, body: EventsDeleteBody):
     "/events/{camera_name}/{label}/create",
     response_model=EventCreateResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Create manual event.",
+    description="""Creates a manual event in the database.
+    Returns a success message or an error if the event is not found.
+    NOTES:
+    - Creating a manual event does not trigger an update to /events MQTT topic.
+    - If a duration is set to null, the event will need to be ended manually by calling /events/{event_id}/end.
+    """,
 )
 def create_event(
     request: Request,
@@ -1468,6 +1634,11 @@ def create_event(
     "/events/{event_id}/end",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="End manual event.",
+    description="""Ends a manual event.
+    Returns a success message or an error if the event is not found.
+    NOTE: This should only be used for manual events.
+    """,
 )
 async def end_event(request: Request, event_id: str, body: EventsEndBody):
     try:
@@ -1495,6 +1666,10 @@ async def end_event(request: Request, event_id: str, body: EventsEndBody):
     "/trigger/embedding",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Create trigger embedding.",
+    description="""Creates a trigger embedding for a specific trigger.
+    Returns a success message or an error if the trigger is not found.
+    """,
 )
 def create_trigger_embedding(
     request: Request,
@@ -1647,6 +1822,10 @@ def create_trigger_embedding(
     "/trigger/embedding/{camera_name}/{name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Update trigger embedding.",
+    description="""Updates a trigger embedding for a specific trigger.
+    Returns a success message or an error if the trigger is not found.
+    """,
 )
 def update_trigger_embedding(
     request: Request,
@@ -1808,6 +1987,10 @@ def update_trigger_embedding(
     "/trigger/embedding/{camera_name}/{name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Delete trigger embedding.",
+    description="""Deletes a trigger embedding for a specific trigger.
+    Returns a success message or an error if the trigger is not found.
+    """,
 )
 def delete_trigger_embedding(
     request: Request,
@@ -1879,6 +2062,10 @@ def delete_trigger_embedding(
     "/triggers/status/{camera_name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
+    summary="Get triggers status.",
+    description="""Gets the status of all triggers for a specific camera.
+    Returns a success message or an error if the camera is not found.
+    """,
 )
 def get_triggers_status(
     camera_name: str,

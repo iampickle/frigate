@@ -6,10 +6,7 @@ import { toast } from "sonner";
 import axios from "axios";
 import { LuCamera, LuDownload, LuTrash2 } from "react-icons/lu";
 import { FiMoreVertical } from "react-icons/fi";
-import { FaArrowsRotate } from "react-icons/fa6";
 import { MdImageSearch } from "react-icons/md";
-import FrigatePlusIcon from "@/components/icons/FrigatePlusIcon";
-import { isMobileOnly } from "react-device-detect";
 import { buttonVariants } from "@/components/ui/button";
 import {
   ContextMenu,
@@ -33,22 +30,18 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import useSWR from "swr";
 
 import { Trans, useTranslation } from "react-i18next";
 import { BsFillLightningFill } from "react-icons/bs";
+import BlurredIconButton from "../button/BlurredIconButton";
+import { PiPath } from "react-icons/pi";
 
 type SearchResultActionsProps = {
   searchResult: SearchResult;
   findSimilar: () => void;
   refreshResults: () => void;
-  showObjectLifecycle: () => void;
-  showSnapshot: () => void;
+  showTrackingDetails: () => void;
   addTrigger: () => void;
   isContextMenu?: boolean;
   children?: ReactNode;
@@ -58,8 +51,7 @@ export default function SearchResultActions({
   searchResult,
   findSimilar,
   refreshResults,
-  showObjectLifecycle,
-  showSnapshot,
+  showTrackingDetails,
   addTrigger,
   isContextMenu = false,
   children,
@@ -125,11 +117,11 @@ export default function SearchResultActions({
       )}
       {searchResult.data.type == "object" && (
         <MenuItem
-          aria-label={t("itemMenu.viewObjectLifecycle.aria")}
-          onClick={showObjectLifecycle}
+          aria-label={t("itemMenu.viewTrackingDetails.aria")}
+          onClick={showTrackingDetails}
         >
-          <FaArrowsRotate className="mr-2 size-4" />
-          <span>{t("itemMenu.viewObjectLifecycle.label")}</span>
+          <PiPath className="mr-2 size-4" />
+          <span>{t("itemMenu.viewTrackingDetails.label")}</span>
         </MenuItem>
       )}
       {config?.semantic_search?.enabled && isContextMenu && (
@@ -151,18 +143,14 @@ export default function SearchResultActions({
             <span>{t("itemMenu.addTrigger.label")}</span>
           </MenuItem>
         )}
-      {isMobileOnly &&
-        config?.plus?.enabled &&
-        searchResult.has_snapshot &&
-        searchResult.end_time &&
-        searchResult.data.type == "object" &&
-        !searchResult.plus_id && (
+      {config?.semantic_search?.enabled &&
+        searchResult.data.type == "object" && (
           <MenuItem
-            aria-label={t("itemMenu.submitToPlus.aria")}
-            onClick={showSnapshot}
+            aria-label={t("itemMenu.findSimilar.aria")}
+            onClick={findSimilar}
           >
-            <FrigatePlusIcon className="mr-2 size-4 cursor-pointer text-primary" />
-            <span>{t("itemMenu.submitToPlus.label")}</span>
+            <MdImageSearch className="mr-2 size-4" />
+            <span>{t("itemMenu.findSimilar.label")}</span>
           </MenuItem>
         )}
       <MenuItem
@@ -210,43 +198,11 @@ export default function SearchResultActions({
         </ContextMenu>
       ) : (
         <>
-          {config?.semantic_search?.enabled &&
-            searchResult.data.type == "object" && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <MdImageSearch
-                    className="size-5 cursor-pointer text-primary-variant hover:text-primary"
-                    onClick={findSimilar}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("itemMenu.findSimilar.label")}
-                </TooltipContent>
-              </Tooltip>
-            )}
-
-          {!isMobileOnly &&
-            config?.plus?.enabled &&
-            searchResult.has_snapshot &&
-            searchResult.end_time &&
-            searchResult.data.type == "object" &&
-            !searchResult.plus_id && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <FrigatePlusIcon
-                    className="size-5 cursor-pointer text-primary-variant hover:text-primary"
-                    onClick={showSnapshot}
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  {t("itemMenu.submitToPlus.label")}
-                </TooltipContent>
-              </Tooltip>
-            )}
-
           <DropdownMenu>
-            <DropdownMenuTrigger>
-              <FiMoreVertical className="size-5 cursor-pointer text-primary-variant hover:text-primary" />
+            <DropdownMenuTrigger asChild>
+              <BlurredIconButton aria-label={t("itemMenu.more.aria")}>
+                <FiMoreVertical className="size-5" />
+              </BlurredIconButton>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">{menuItems}</DropdownMenuContent>
           </DropdownMenu>

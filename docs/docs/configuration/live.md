@@ -174,7 +174,7 @@ For devices that support two way talk, Frigate can be configured to use the feat
 - Ensure you access Frigate via https (may require [opening port 8971](/frigate/installation/#ports)).
 - For the Home Assistant Frigate card, [follow the docs](http://card.camera/#/usage/2-way-audio) for the correct source.
 
-To use the Reolink Doorbell with two way talk, you should use the [recommended Reolink configuration](/configuration/camera_specific#reolink-doorbell)
+To use the Reolink Doorbell with two way talk, you should use the [recommended Reolink configuration](/configuration/camera_specific#reolink-cameras)
 
 As a starting point to check compatibility for your camera, view the list of cameras supported for two-way talk on the [go2rtc repository](https://github.com/AlexxIT/go2rtc?tab=readme-ov-file#two-way-audio). For cameras in the category `ONVIF Profile T`, you can use the [ONVIF Conformant Products Database](https://www.onvif.org/conformant-products/)'s FeatureList to check for the presence of `AudioOutput`. A camera that supports `ONVIF Profile T` _usually_ supports this, but due to inconsistent support, a camera that explicitly lists this feature may still not work. If no entry for your camera exists on the database, it is recommended not to buy it or to consult with the manufacturer's support on the feature availability.
 
@@ -250,6 +250,7 @@ Note that disabling a camera through the config file (`enabled: False`) removes 
    - Check go2rtc configuration for transcoding (e.g., audio to AAC/OPUS).
    - Test with a different stream via the UI dropdown (if `live -> streams` is configured).
    - For WebRTC-specific issues, ensure port 8555 is forwarded and candidates are set (see (WebRTC Extra Configuration)(#webrtc-extra-configuration)).
+   - If your cameras are streaming at a high resolution, your browser may be struggling to load all of the streams before the buffering timeout occurs. Frigate prioritizes showing a true live view as quickly as possible. If the fallback occurs often, change your live view settings to use a lower bandwidth substream.
 
 3. **It doesn't seem like my cameras are streaming on the Live dashboard. Why?**
 

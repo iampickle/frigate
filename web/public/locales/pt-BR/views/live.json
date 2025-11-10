@@ -86,8 +86,8 @@
     "disable": "Ocultar Estatísticas de Transmissão"
   },
   "manualRecording": {
-    "title": "Gravação Sob Demanda",
-    "tips": "Inicie um evento manual baseado nas configurações de retenção de gravação dessa câmera.",
+    "title": "Sob Demanda",
+    "tips": "Baixe uma captura de tela instantânea ou Inicie um evento manual baseado nas configurações de retenção de gravação dessa câmera.",
     "playInBackground": {
       "label": "Reproduzir em segundo plano",
       "desc": "Habilite essa opção para continuar transmitindo quando o reprodutor estiver oculto."
@@ -134,6 +134,9 @@
     "playInBackground": {
       "label": "Reproduzir em segundo plano",
       "tips": "Habilitar essa opção para continuar a transmissão quando o reprodutor estiver oculto."
+    },
+    "debug": {
+      "picker": "A seleção da transmissão fica indisponível em modo de depuração. A visualização de depuração sempre usa o papel de detecção atribuído à transmissão."
     }
   },
   "cameraSettings": {
@@ -167,5 +170,16 @@
   "transcription": {
     "enable": "Habilitar Transcrição de Áudio em Tempo Real",
     "disable": "Desabilitar Transcrição de Áudio em Tempo Real"
+  },
+  "noCameras": {
+    "title": "Nenhuma Câmera Configurada",
+    "description": "Inicie conectando uma câmera ao Frigate",
+    "buttonText": "Adicionar Câmera"
+  },
+  "snapshot": {
+    "takeSnapshot": "Baixar captura de imagem instantânea",
+    "noVideoSource": "Nenhuma fonte de vídeo disponível para captura de imagem.",
+    "captureFailed": "Falha ao capturar imagem.",
+    "downloadStarted": "Download de capturas de imagem iniciado."
   }
 }

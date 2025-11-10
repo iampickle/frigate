@@ -18,7 +18,6 @@ import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -26,11 +25,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useResizeObserver } from "@/hooks/resize-observer";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
 import { CameraConfig, FrigateConfig } from "@/types/frigateConfig";
@@ -39,10 +33,8 @@ import {
   LiveStreamMetadata,
   VideoResolutionType,
 } from "@/types/live";
-import { CameraPtzInfo } from "@/types/ptz";
 import { RecordingStartingPoint } from "@/types/record";
 import React, {
-  ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -57,12 +49,7 @@ import {
   isTablet,
   useMobileOrientation,
 } from "react-device-detect";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
-  FaAngleDown,
-  FaAngleLeft,
-  FaAngleRight,
-  FaAngleUp,
   FaCog,
   FaCompress,
   FaExpand,
@@ -71,6 +58,7 @@ import {
 } from "react-icons/fa";
 import { GiSpeaker, GiSpeakerOff } from "react-icons/gi";
 import {
+  TbCameraDown,
   TbRecordMail,
   TbRecordMailOff,
   TbViewfinder,
@@ -92,8 +80,6 @@ import {
   LuX,
 } from "react-icons/lu";
 import {
-  MdCenterFocusStrong,
-  MdCenterFocusWeak,
   MdClosedCaption,
   MdClosedCaptionDisabled,
   MdNoPhotography,
@@ -101,8 +87,6 @@ import {
   MdPersonOff,
   MdPersonSearch,
   MdPhotoCamera,
-  MdZoomIn,
-  MdZoomOut,
 } from "react-icons/md";
 import { Link, useNavigate } from "react-router-dom";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -125,8 +109,19 @@ import axios from "axios";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import { useIsAdmin } from "@/hooks/use-is-admin";
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
+import PtzControlPanel from "@/components/overlay/PtzControlPanel";
+import ObjectSettingsView from "../settings/ObjectSettingsView";
+import { useSearchEffect } from "@/hooks/use-overlay-state";
+import {
+  downloadSnapshot,
+  fetchCameraSnapshot,
+  generateSnapshotFilename,
+  grabVideoSnapshot,
+  SnapshotResult,
+} from "@/utils/snapshotUtil";
+import ActivityIndicator from "@/components/indicators/activity-indicator";
 
 type LiveCameraViewProps = {
   config?: FrigateConfig;
@@ -288,6 +283,15 @@ export default function LiveCameraView({
   );
 
   const [showStats, setShowStats] = useState(false);
+  const [debug, setDebug] = useState(false);
+
+  useSearchEffect("debug", (value: string) => {
+    if (value === "true") {
+      setDebug(true);
+    }
+
+    return true;
+  });
 
   const [fullResolution, setFullResolution] = useState<VideoResolutionType>({
     width: 0,
@@ -324,21 +328,25 @@ export default function LiveCameraView({
 
   useKeyboardListener(["m"], (key, modifiers) => {
     if (!modifiers.down) {
-      return;
+      return true;
     }
 
     switch (key) {
       case "m":
         if (supportsAudioOutput) {
           setAudio(!audio);
+          return true;
         }
         break;
       case "t":
         if (supports2WayTalk) {
           setMic(!mic);
+          return true;
         }
         break;
     }
+
+    return false;
   });
 
   // layout state
@@ -438,7 +446,11 @@ export default function LiveCameraView({
   );
 
   return (
-    <TransformWrapper minScale={1.0} wheel={{ smoothStep: 0.005 }}>
+    <TransformWrapper
+      minScale={1.0}
+      wheel={{ smoothStep: 0.005 }}
+      disabled={debug}
+    >
       <Toaster position="top-center" closeButton={true} />
       <div
         ref={mainRef}
@@ -524,6 +536,7 @@ export default function LiveCameraView({
                 variant={fullscreen ? "overlay" : "primary"}
                 Icon={fullscreen ? FaCompress : FaExpand}
                 isActive={fullscreen}
+                disabled={debug}
                 title={
                   fullscreen
                     ? t("button.close", { ns: "common" })
@@ -551,7 +564,7 @@ export default function LiveCameraView({
                     setPip(false);
                   }
                 }}
-                disabled={!cameraEnabled}
+                disabled={!cameraEnabled || debug}
               />
             )}
             {supports2WayTalk && (
@@ -571,7 +584,7 @@ export default function LiveCameraView({
                     setAudio(true);
                   }
                 }}
-                disabled={!cameraEnabled}
+                disabled={!cameraEnabled || debug}
               />
             )}
             {supportsAudioOutput && preferredLiveMode != "jsmpeg" && (
@@ -586,14 +599,9 @@ export default function LiveCameraView({
                     : t("cameraAudio.enable", { ns: "views/live" })
                 }
                 onClick={() => setAudio(!audio)}
-                disabled={!cameraEnabled}
+                disabled={!cameraEnabled || debug}
               />
             )}
-              <CameraActions
-                camera={camera}
-                fullscreen={fullscreen}
-                cameraEnabled={cameraEnabled}
-              />
             <FrigateCameraFeatures
               camera={camera}
               recordingEnabled={camera.record.enabled_in_config}
@@ -615,10 +623,67 @@ export default function LiveCameraView({
               supportsAudioOutput={supportsAudioOutput}
               supports2WayTalk={supports2WayTalk}
               cameraEnabled={cameraEnabled}
+              debug={debug}
+              setDebug={setDebug}
             />
           </div>
         </div>
-        <div id="player-container" className="size-full" ref={containerRef}>
+        {!debug ? (
+          <div id="player-container" className="size-full" ref={containerRef}>
+            <TransformComponent
+              wrapperStyle={{
+                width: "100%",
+                height: "100%",
+              }}
+              contentStyle={{
+                position: "relative",
+                width: "100%",
+                height: "100%",
+                padding: "8px",
+              }}
+            >
+              <div
+                className={`flex flex-col items-center justify-center ${growClassName}`}
+                ref={clickOverlayRef}
+                onClick={handleOverlayClick}
+                style={{
+                  aspectRatio: constrainedAspectRatio,
+                }}
+              >
+                <LivePlayer
+                  key={camera.name}
+                  className={`${fullscreen ? "*:rounded-none" : ""}`}
+                  windowVisible
+                  showStillWithoutActivity={false}
+                  alwaysShowCameraName={false}
+                  cameraConfig={camera}
+                  playAudio={audio}
+                  playInBackground={playInBackground ?? false}
+                  showStats={showStats}
+                  micEnabled={mic}
+                  iOSCompatFullScreen={isIOS}
+                  preferredLiveMode={preferredLiveMode}
+                  useWebGL={true}
+                  streamName={streamName ?? ""}
+                  pip={pip}
+                  containerRef={containerRef}
+                  setFullResolution={setFullResolution}
+                  onError={handleError}
+                />
+              </div>
+            </TransformComponent>
+            {camera?.audio?.enabled_in_config &&
+              audioTranscriptionState == "ON" &&
+              transcription != null && (
+                <div
+                  ref={transcriptionRef}
+                  className="text-md scrollbar-container absolute bottom-4 left-1/2 max-h-[15vh] w-[75%] -translate-x-1/2 overflow-y-auto rounded-lg bg-black/70 p-2 text-white md:w-[50%]"
+                >
+                  {transcription}
+                </div>
+              )}
+          </div>
+        ) : (
           <TransformComponent
             wrapperStyle={{
               width: "100%",
@@ -628,53 +693,16 @@ export default function LiveCameraView({
               position: "relative",
               width: "100%",
               height: "100%",
-              padding: "8px",
             }}
           >
-            <div
-              className={`flex flex-col items-center justify-center ${growClassName}`}
-              ref={clickOverlayRef}
-              onClick={handleOverlayClick}
-              style={{
-                aspectRatio: constrainedAspectRatio,
-              }}
-            >
-              <LivePlayer
-                key={camera.name}
-                className={`${fullscreen ? "*:rounded-none" : ""}`}
-                windowVisible
-                showStillWithoutActivity={false}
-                cameraConfig={camera}
-                playAudio={audio}
-                playInBackground={playInBackground ?? false}
-                showStats={showStats}
-                micEnabled={mic}
-                iOSCompatFullScreen={isIOS}
-                preferredLiveMode={preferredLiveMode}
-                useWebGL={true}
-                streamName={streamName ?? ""}
-                pip={pip}
-                containerRef={containerRef}
-                setFullResolution={setFullResolution}
-                onError={handleError}
-              />
-            </div>
+            <ObjectSettingsView selectedCamera={camera.name} />
           </TransformComponent>
-          {camera?.audio?.enabled_in_config &&
-            audioTranscriptionState == "ON" &&
-            transcription != null && (
-              <div
-                ref={transcriptionRef}
-                className="text-md scrollbar-container absolute bottom-4 left-1/2 max-h-[15vh] w-[75%] -translate-x-1/2 overflow-y-auto rounded-lg bg-black/70 p-2 text-white md:w-[50%]"
-              >
-                {transcription}
-              </div>
-            )}
-        </div>
+        )}
       </div>
       {camera.onvif.host != "" && (
         <div className="flex flex-col items-center justify-center">
           <PtzControlPanel
+            className={debug && isMobile ? "bottom-auto top-[25%]" : ""}
             camera={camera.name}
             enabled={cameraEnabled}
             clickOverlay={clickOverlay}
@@ -684,372 +712,6 @@ export default function LiveCameraView({
       )}
     </TransformWrapper>
   );
-}
-
-type TooltipButtonProps = {
-  label: string;
-  onClick?: () => void;
-  onMouseDown?: (e: React.MouseEvent) => void;
-  onMouseUp?: (e: React.MouseEvent) => void;
-  onTouchStart?: (e: React.TouchEvent) => void;
-  onTouchEnd?: (e: React.TouchEvent) => void;
-  children: ReactNode;
-  className?: string;
-};
-
-function TooltipButton({
-  label,
-  onClick,
-  onMouseDown,
-  onMouseUp,
-  onTouchStart,
-  onTouchEnd,
-  children,
-  className,
-  ...props
-}: TooltipButtonProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          aria-label={label}
-          onClick={onClick}
-          onMouseDown={onMouseDown}
-          onMouseUp={onMouseUp}
-          onTouchStart={onTouchStart}
-          onTouchEnd={onTouchEnd}
-          className={className}
-          {...props}
-        >
-          {children}
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>
-        <p>{label}</p>
-      </TooltipContent>
-    </Tooltip>
-  );
-}
-
-function PtzControlPanel({
-  camera,
-  enabled,
-  clickOverlay,
-  setClickOverlay,
-}: {
-  camera: string;
-  enabled: boolean;
-  clickOverlay: boolean;
-  setClickOverlay: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
-  const { t } = useTranslation(["views/live"]);
-  const { data: ptz } = useSWR<CameraPtzInfo>(
-    enabled ? `${camera}/ptz/info` : null,
-  );
-
-  const { send: sendPtz } = usePtzCommand(camera);
-
-  const onStop = useCallback(
-    (e: React.SyntheticEvent) => {
-      e.preventDefault();
-      sendPtz("STOP");
-    },
-    [sendPtz],
-  );
-
-  useKeyboardListener(
-    [
-      "ArrowLeft",
-      "ArrowRight",
-      "ArrowUp",
-      "ArrowDown",
-      "+",
-      "-",
-      "1",
-      "2",
-      "3",
-      "4",
-      "5",
-      "6",
-      "7",
-      "8",
-      "9",
-    ],
-    (key, modifiers) => {
-      if (modifiers.repeat || !key) {
-        return;
-      }
-
-      if (["1", "2", "3", "4", "5", "6", "7", "8", "9"].includes(key)) {
-        const presetNumber = parseInt(key);
-        if (
-          ptz &&
-          (ptz.presets?.length ?? 0) > 0 &&
-          presetNumber <= ptz.presets.length
-        ) {
-          sendPtz(`preset_${ptz.presets[presetNumber - 1]}`);
-        }
-        return;
-      }
-
-      if (!modifiers.down) {
-        sendPtz("STOP");
-        return;
-      }
-
-      switch (key) {
-        case "ArrowLeft":
-          sendPtz("MOVE_LEFT");
-          break;
-        case "ArrowRight":
-          sendPtz("MOVE_RIGHT");
-          break;
-        case "ArrowUp":
-          sendPtz("MOVE_UP");
-          break;
-        case "ArrowDown":
-          sendPtz("MOVE_DOWN");
-          break;
-        case "+":
-          sendPtz(modifiers.shift ? "FOCUS_IN" : "ZOOM_IN");
-          break;
-        case "-":
-          sendPtz(modifiers.shift ? "FOCUS_OUT" : "ZOOM_OUT");
-          break;
-      }
-    },
-  );
-
-  return (
-    <div
-      className={cn(
-        "absolute inset-x-2 bottom-[10%] flex select-none flex-wrap items-center justify-center gap-1 md:left-[50%] md:-translate-x-[50%] md:flex-nowrap",
-        isMobile && "landscape:ml-12",
-      )}
-    >
-      {ptz?.features?.includes("pt") && (
-        <>
-          <TooltipButton
-            label={t("ptz.move.left.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_LEFT");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_LEFT");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <FaAngleLeft />
-          </TooltipButton>
-          <TooltipButton
-            label={t("ptz.move.up.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_UP");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_UP");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <FaAngleUp />
-          </TooltipButton>
-          <TooltipButton
-            label={t("ptz.move.down.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_DOWN");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_DOWN");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <FaAngleDown />
-          </TooltipButton>
-          <TooltipButton
-            label={t("ptz.move.right.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_RIGHT");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("MOVE_RIGHT");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <FaAngleRight />
-          </TooltipButton>
-        </>
-      )}
-      {ptz?.features?.includes("zoom") && (
-        <>
-          <TooltipButton
-            label={t("ptz.zoom.in.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("ZOOM_IN");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("ZOOM_IN");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <MdZoomIn />
-          </TooltipButton>
-          <TooltipButton
-            label={t("ptz.zoom.out.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("ZOOM_OUT");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("ZOOM_OUT");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <MdZoomOut />
-          </TooltipButton>
-        </>
-      )}
-      {ptz?.features?.includes("focus") && (
-        <>
-          <TooltipButton
-            label={t("ptz.focus.in.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("FOCUS_IN");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("FOCUS_IN");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <MdCenterFocusStrong />
-          </TooltipButton>
-          <TooltipButton
-            label={t("ptz.focus.out.label")}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              sendPtz("FOCUS_OUT");
-            }}
-            onTouchStart={(e) => {
-              e.preventDefault();
-              sendPtz("FOCUS_OUT");
-            }}
-            onMouseUp={onStop}
-            onTouchEnd={onStop}
-          >
-            <MdCenterFocusWeak />
-          </TooltipButton>
-        </>
-      )}
-
-      {ptz?.features?.includes("pt-r-fov") && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              className={`${clickOverlay ? "text-selected" : "text-primary"}`}
-              aria-label={t("ptz.move.clickMove.label")}
-              onClick={() => setClickOverlay(!clickOverlay)}
-            >
-              <TbViewfinder />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              {clickOverlay
-                ? t("ptz.move.clickMove.disable")
-                : t("ptz.move.clickMove.enable")}
-            </p>
-          </TooltipContent>
-        </Tooltip>
-      )}
-      {(ptz?.presets?.length ?? 0) > 0 && (
-        <DropdownMenu modal={!isDesktop}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <DropdownMenuTrigger asChild>
-                <Button aria-label={t("ptz.presets")}>
-                  <BsThreeDotsVertical />
-                </Button>
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>{t("ptz.presets")}</p>
-            </TooltipContent>
-          </Tooltip>
-
-          <DropdownMenuContent
-            className="scrollbar-container max-h-[40dvh] overflow-y-auto"
-            onCloseAutoFocus={(e) => e.preventDefault()}
-          >
-            {ptz?.presets.map((preset) => (
-              <DropdownMenuItem
-                key={preset}
-                aria-label={preset}
-                className="cursor-pointer"
-                onSelect={() => sendPtz(`preset_${preset}`)}
-              >
-                {preset}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-    </div>
-  );
-}
-
-function OnDemandRetentionMessage({ camera }: { camera: CameraConfig }) {
-  const { t } = useTranslation(["views/live", "views/events"]);
-  const rankMap = { all: 0, motion: 1, active_objects: 2 };
-  const getValidMode = (retain?: { mode?: string }): keyof typeof rankMap => {
-    const mode = retain?.mode;
-    return mode && mode in rankMap ? (mode as keyof typeof rankMap) : "all";
-  };
-
-  const recordRetainMode = getValidMode(camera.record.retain);
-  const alertsRetainMode = getValidMode(camera.review.alerts.retain);
-
-  const effectiveRetainMode =
-    rankMap[alertsRetainMode] < rankMap[recordRetainMode]
-      ? recordRetainMode
-      : alertsRetainMode;
-
-  const source = effectiveRetainMode === recordRetainMode ? "camera" : "alerts";
-
-  return effectiveRetainMode !== "all" ? (
-    <div>
-      <Trans
-        ns="views/live"
-        values={{
-          source,
-          effectiveRetainMode,
-          effectiveRetainModeName: t(
-            "effectiveRetainMode.modes." + effectiveRetainMode,
-          ),
-        }}
-      >
-        effectiveRetainMode.notAllTips
-      </Trans>
-    </div>
-  ) : null;
 }
 
 type FrigateCameraFeaturesProps = {
@@ -1071,6 +733,8 @@ type FrigateCameraFeaturesProps = {
   supportsAudioOutput: boolean;
   supports2WayTalk: boolean;
   cameraEnabled: boolean;
+  debug: boolean;
+  setDebug: (debug: boolean) => void;
 };
 function FrigateCameraFeatures({
   camera,
@@ -1091,6 +755,8 @@ function FrigateCameraFeatures({
   supportsAudioOutput,
   supports2WayTalk,
   cameraEnabled,
+  debug,
+  setDebug,
 }: FrigateCameraFeaturesProps) {
   const { t } = useTranslation(["views/live", "components/dialog"]);
   const { getLocaleDocUrl } = useDocDomain();
@@ -1141,11 +807,10 @@ function FrigateCameraFeatures({
         const toastId = toast.success(
           <div className="flex flex-col space-y-3">
             <div className="font-semibold">{t("manualRecording.started")}</div>
-            {!camera.record.enabled || camera.record.alerts.retain.days == 0 ? (
-              <div>{t("manualRecording.recordDisabledTips")}</div>
-            ) : (
-              <OnDemandRetentionMessage camera={camera} />
-            )}
+            {!camera.record.enabled ||
+              (camera.record.alerts.retain.days == 0 && (
+                <div>{t("manualRecording.recordDisabledTips")}</div>
+              ))}
           </div>,
           {
             position: "top-center",
@@ -1191,6 +856,34 @@ function FrigateCameraFeatures({
     }
   }, [createEvent, endEvent, isRecording]);
 
+  const [isSnapshotLoading, setIsSnapshotLoading] = useState(false);
+
+  const handleSnapshotClick = useCallback(async () => {
+    setIsSnapshotLoading(true);
+    try {
+      let result: SnapshotResult;
+
+      if (isRestreamed && preferredLiveMode !== "jsmpeg") {
+        // For restreamed streams with video elements (MSE/WebRTC), grab directly from video element
+        result = await grabVideoSnapshot();
+      } else {
+        // For detect stream or JSMpeg players, use the API endpoint
+        result = await fetchCameraSnapshot(camera.name);
+      }
+
+      if (result.success) {
+        const { dataUrl } = result.data;
+        const filename = generateSnapshotFilename(camera.name);
+        downloadSnapshot(dataUrl, filename);
+        toast.success(t("snapshot.downloadStarted"));
+      } else {
+        toast.error(t("snapshot.captureFailed"));
+      }
+    } finally {
+      setIsSnapshotLoading(false);
+    }
+  }, [camera.name, isRestreamed, preferredLiveMode, t]);
+
   useEffect(() => {
     // ensure manual event is stopped when component unmounts
     return () => {
@@ -1201,10 +894,6 @@ function FrigateCameraFeatures({
     // mount/unmount only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // navigate for debug view
-
-  const navigate = useNavigate();
 
   // desktop shows icons part of row
   if (isDesktop || isTablet) {
@@ -1221,7 +910,7 @@ function FrigateCameraFeatures({
                 enabledState == "ON" ? t("camera.disable") : t("camera.enable")
               }
               onClick={() => sendEnabled(enabledState == "ON" ? "OFF" : "ON")}
-              disabled={false}
+              disabled={debug}
             />
             <CameraFeatureToggle
               className="p-2 md:p-0"
@@ -1327,9 +1016,18 @@ function FrigateCameraFeatures({
           isActive={isRecording}
           title={t("manualRecording." + (isRecording ? "stop" : "start"))}
           onClick={handleEventButtonClick}
-          disabled={!cameraEnabled}
+          disabled={!cameraEnabled || debug}
         />
-
+        <CameraFeatureToggle
+          className="p-2 md:p-0"
+          variant={fullscreen ? "overlay" : "primary"}
+          Icon={TbCameraDown}
+          isActive={false}
+          title={t("snapshot.takeSnapshot")}
+          onClick={handleSnapshotClick}
+          disabled={!cameraEnabled || debug || isSnapshotLoading}
+          loading={isSnapshotLoading}
+        />
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger>
             <div
@@ -1393,6 +1091,7 @@ function FrigateCameraFeatures({
                     </Label>
                     <Select
                       value={streamName}
+                      disabled={debug}
                       onValueChange={(value) => {
                         setStreamName?.(value);
                       }}
@@ -1422,48 +1121,60 @@ function FrigateCameraFeatures({
                       </SelectContent>
                     </Select>
 
-                    {preferredLiveMode != "jsmpeg" && isRestreamed && (
+                    {debug && (
                       <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
-                        {supportsAudioOutput ? (
-                          <>
-                            <LuCheck className="size-4 text-success" />
-                            <div>{t("stream.audio.available")}</div>
-                          </>
-                        ) : (
-                          <>
-                            <LuX className="size-4 text-danger" />
-                            <div>{t("stream.audio.unavailable")}</div>
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <div className="cursor-pointer p-0">
-                                  <LuInfo className="size-4" />
-                                  <span className="sr-only">
-                                    {t("button.info", { ns: "common" })}
-                                  </span>
-                                </div>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-80 text-xs">
-                                {t("stream.audio.tips.title")}
-                                <div className="mt-2 flex items-center text-primary">
-                                  <Link
-                                    to={getLocaleDocUrl("configuration/live")}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline"
-                                  >
-                                    {t("readTheDocumentation", {
-                                      ns: "common",
-                                    })}
-                                    <LuExternalLink className="ml-2 inline-flex size-3" />
-                                  </Link>
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </>
-                        )}
+                        <>
+                          <LuX className="size-8 text-danger" />
+                          <div>{t("stream.debug.picker")}</div>
+                        </>
                       </div>
                     )}
+
                     {preferredLiveMode != "jsmpeg" &&
+                      !debug &&
+                      isRestreamed && (
+                        <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
+                          {supportsAudioOutput ? (
+                            <>
+                              <LuCheck className="size-4 text-success" />
+                              <div>{t("stream.audio.available")}</div>
+                            </>
+                          ) : (
+                            <>
+                              <LuX className="size-4 text-danger" />
+                              <div>{t("stream.audio.unavailable")}</div>
+                              <Popover>
+                                <PopoverTrigger asChild>
+                                  <div className="cursor-pointer p-0">
+                                    <LuInfo className="size-4" />
+                                    <span className="sr-only">
+                                      {t("button.info", { ns: "common" })}
+                                    </span>
+                                  </div>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-80 text-xs">
+                                  {t("stream.audio.tips.title")}
+                                  <div className="mt-2 flex items-center text-primary">
+                                    <Link
+                                      to={getLocaleDocUrl("configuration/live")}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline"
+                                    >
+                                      {t("readTheDocumentation", {
+                                        ns: "common",
+                                      })}
+                                      <LuExternalLink className="ml-2 inline-flex size-3" />
+                                    </Link>
+                                  </div>
+                                </PopoverContent>
+                              </Popover>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    {preferredLiveMode != "jsmpeg" &&
+                      !debug &&
                       isRestreamed &&
                       supportsAudioOutput && (
                         <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
@@ -1509,29 +1220,31 @@ function FrigateCameraFeatures({
                         </div>
                       )}
 
-                    {preferredLiveMode == "jsmpeg" && isRestreamed && (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="flex flex-row items-center gap-2">
-                          <IoIosWarning className="mr-1 size-8 text-danger" />
+                    {preferredLiveMode == "jsmpeg" &&
+                      !debug &&
+                      isRestreamed && (
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="flex flex-row items-center gap-2">
+                            <IoIosWarning className="mr-1 size-8 text-danger" />
 
-                          <p className="text-sm">
-                            {t("stream.lowBandwidth.tips")}
-                          </p>
-                        </div>
-                        <Button
-                          className={`flex items-center gap-2.5 rounded-lg`}
-                          aria-label={t("stream.lowBandwidth.resetStream")}
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setLowBandwidth(false)}
-                        >
-                          <MdOutlineRestartAlt className="size-5 text-primary-variant" />
-                          <div className="text-primary-variant">
-                            {t("stream.lowBandwidth.resetStream")}
+                            <p className="text-sm">
+                              {t("stream.lowBandwidth.tips")}
+                            </p>
                           </div>
-                        </Button>
-                      </div>
-                    )}
+                          <Button
+                            className={`flex items-center gap-2.5 rounded-lg`}
+                            aria-label={t("stream.lowBandwidth.resetStream")}
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLowBandwidth(false)}
+                          >
+                            <MdOutlineRestartAlt className="size-5 text-primary-variant" />
+                            <div className="text-primary-variant">
+                              {t("stream.lowBandwidth.resetStream")}
+                            </div>
+                          </Button>
+                        </div>
+                      )}
                   </div>
                 )}
               {isRestreamed && (
@@ -1546,6 +1259,7 @@ function FrigateCameraFeatures({
                     <Switch
                       className="ml-1"
                       id="backgroundplay"
+                      disabled={debug}
                       checked={playInBackground}
                       onCheckedChange={(checked) =>
                         setPlayInBackground(checked)
@@ -1570,6 +1284,7 @@ function FrigateCameraFeatures({
                   <Switch
                     className="ml-1"
                     id="showstats"
+                    disabled={debug}
                     checked={showStats}
                     onCheckedChange={(checked) => setShowStats(checked)}
                   />
@@ -1580,17 +1295,22 @@ function FrigateCameraFeatures({
                   })}
                 </p>
               </div>
-              <div
-                className="flex cursor-pointer flex-col gap-1"
-                onClick={() =>
-                  navigate(`/settings?page=debug&camera=${camera.name}`)
-                }
-              >
-                <div className="flex items-center justify-between text-sm font-medium leading-none">
-                  {t("streaming.debugView", {
-                    ns: "components/dialog",
-                  })}
-                  <LuExternalLink className="ml-2 inline-flex size-5" />
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <Label
+                    className="mx-0 cursor-pointer text-primary"
+                    htmlFor="debug"
+                  >
+                    {t("streaming.debugView", {
+                      ns: "components/dialog",
+                    })}
+                  </Label>
+                  <Switch
+                    className="ml-1"
+                    id="debug"
+                    checked={debug}
+                    onCheckedChange={(checked) => setDebug(checked)}
+                  />
                 </div>
               </div>
             </div>
@@ -1730,6 +1450,7 @@ function FrigateCameraFeatures({
                 onValueChange={(value) => {
                   setStreamName?.(value);
                 }}
+                disabled={debug}
               >
                 <SelectTrigger className="w-full">
                   <SelectValue>
@@ -1755,7 +1476,17 @@ function FrigateCameraFeatures({
                   </SelectGroup>
                 </SelectContent>
               </Select>
-              {preferredLiveMode != "jsmpeg" && isRestreamed && (
+
+              {debug && (
+                <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
+                  <>
+                    <LuX className="size-8 text-danger" />
+                    <div>{t("stream.debug.picker")}</div>
+                  </>
+                </div>
+              )}
+
+              {preferredLiveMode != "jsmpeg" && !debug && isRestreamed && (
                 <div className="mt-1 flex flex-row items-center gap-1 text-sm text-muted-foreground">
                   {supportsAudioOutput ? (
                     <>
@@ -1795,6 +1526,7 @@ function FrigateCameraFeatures({
                 </div>
               )}
               {preferredLiveMode != "jsmpeg" &&
+                !debug &&
                 isRestreamed &&
                 supportsAudioOutput && (
                   <div className="flex flex-row items-center gap-1 text-sm text-muted-foreground">
@@ -1841,7 +1573,6 @@ function FrigateCameraFeatures({
                 <div className="mt-2 flex flex-col items-center gap-3">
                   <div className="flex flex-row items-center gap-2">
                     <IoIosWarning className="mr-1 size-8 text-danger" />
-
                     <p className="text-sm">{t("stream.lowBandwidth.tips")}</p>
                   </div>
                   <Button
@@ -1849,6 +1580,7 @@ function FrigateCameraFeatures({
                     aria-label={t("stream.lowBandwidth.resetStream")}
                     variant="outline"
                     size="sm"
+                    disabled={debug}
                     onClick={() => setLowBandwidth(false)}
                   >
                     <MdOutlineRestartAlt className="size-5 text-primary-variant" />
@@ -1864,15 +1596,28 @@ function FrigateCameraFeatures({
             <div className="mb-1 text-sm font-medium leading-none">
               {t("manualRecording.title")}
             </div>
-            <Button
-              onClick={handleEventButtonClick}
-              className={cn(
-                "w-full",
-                isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
-              )}
-            >
-              {t("manualRecording." + (isRecording ? "end" : "start"))}
-            </Button>
+            <div className="flex flex-row items-stretch gap-2">
+              <Button
+                onClick={handleSnapshotClick}
+                disabled={!cameraEnabled || debug || isSnapshotLoading}
+                className="h-auto w-full whitespace-normal"
+              >
+                {isSnapshotLoading && (
+                  <ActivityIndicator className="mr-2 size-4" />
+                )}
+                {t("snapshot.takeSnapshot")}
+              </Button>
+              <Button
+                onClick={handleEventButtonClick}
+                className={cn(
+                  "h-auto w-full whitespace-normal",
+                  isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
+                )}
+                disabled={debug}
+              >
+                {t("manualRecording." + (isRecording ? "end" : "start"))}
+              </Button>
+            </div>
             <p className="text-sm text-muted-foreground">
               {t("manualRecording.tips")}
             </p>
@@ -1886,6 +1631,7 @@ function FrigateCameraFeatures({
                   onCheckedChange={(checked) => {
                     setPlayInBackground(checked);
                   }}
+                  disabled={debug}
                 />
                 <p className="mx-2 -mt-2 text-sm text-muted-foreground">
                   {t("manualRecording.playInBackground.desc")}
@@ -1898,6 +1644,7 @@ function FrigateCameraFeatures({
                   onCheckedChange={(checked) => {
                     setShowStats(checked);
                   }}
+                  disabled={debug}
                 />
                 <p className="mx-2 -mt-2 text-sm text-muted-foreground">
                   {t("manualRecording.showStats.desc")}
@@ -1905,16 +1652,12 @@ function FrigateCameraFeatures({
               </div>
             </>
           )}
-          <div className="mb-3 flex flex-col gap-1 px-2">
-            <div className="flex items-center justify-between text-sm font-medium leading-none">
-              {t("manualRecording.debugView")}
-              <LuExternalLink
-                onClick={() =>
-                  navigate(`/settings?page=debug&camera=${camera.name}`)
-                }
-                className="ml-2 inline-flex size-5 cursor-pointer"
-              />
-            </div>
+          <div className="mb-3 flex flex-col">
+            <FilterSwitch
+              label={t("streaming.debugView", { ns: "components/dialog" })}
+              isChecked={debug}
+              onCheckedChange={(checked) => setDebug(checked)}
+            />
           </div>
         </div>
       </DrawerContent>

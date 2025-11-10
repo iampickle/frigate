@@ -1,5 +1,5 @@
 export type TriggerType = "thumbnail" | "description";
-export type TriggerAction = "notification";
+export type TriggerAction = "notification" | "sub_label" | "attribute";
 
 export type Trigger = {
   enabled: boolean;
@@ -8,4 +8,5 @@ export type Trigger = {
   data: string;
   threshold: number;
   actions: TriggerAction[];
+  friendly_name?: string;
 };
