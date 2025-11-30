@@ -6,7 +6,7 @@ import {
   useState,
 } from "react";
 import Hls from "hls.js";
-import { isAndroid, isDesktop, isMobile } from "react-device-detect";
+import { isDesktop, isMobile } from "react-device-detect";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import VideoControls from "./VideoControls";
 import { VideoResolutionType } from "@/types/live";
@@ -20,9 +20,10 @@ import { cn } from "@/lib/utils";
 import { ASPECT_VERTICAL_LAYOUT, RecordingPlayerError } from "@/types/record";
 import { useTranslation } from "react-i18next";
 import ObjectTrackOverlay from "@/components/overlay/ObjectTrackOverlay";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 // Android native hls does not seek correctly
-const USE_NATIVE_HLS = !isAndroid;
+const USE_NATIVE_HLS = false;
 const HLS_MIME_TYPE = "application/vnd.apple.mpegurl" as const;
 const unsupportedErrorCodes = [
   MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED,
@@ -83,6 +84,7 @@ export default function HlsVideoPlayer({
 }: HlsVideoPlayerProps) {
   const { t } = useTranslation("components/player");
   const { data: config } = useSWR<FrigateConfig>("config");
+  const isAdmin = useIsAdmin();
 
   // for detail stream context in History
   const currentTime = currentTimeOverride;
@@ -94,24 +96,52 @@ export default function HlsVideoPlayer({
   const [loadedMetadata, setLoadedMetadata] = useState(false);
   const [bufferTimeout, setBufferTimeout] = useState<NodeJS.Timeout>();
 
+  const applyVideoDimensions = useCallback(
+    (width: number, height: number) => {
+      if (setFullResolution) {
+        setFullResolution({ width, height });
+      }
+      setVideoDimensions({ width, height });
+      if (height > 0) {
+        setTallCamera(width / height < ASPECT_VERTICAL_LAYOUT);
+      }
+    },
+    [setFullResolution],
+  );
+
   const handleLoadedMetadata = useCallback(() => {
     setLoadedMetadata(true);
-    if (videoRef.current) {
-      const width = videoRef.current.videoWidth;
-      const height = videoRef.current.videoHeight;
-
-      if (setFullResolution) {
-        setFullResolution({
-          width,
-          height,
-        });
-      }
-
-      setVideoDimensions({ width, height });
-
-      setTallCamera(width / height < ASPECT_VERTICAL_LAYOUT);
+    if (!videoRef.current) {
+      return;
     }
-  }, [videoRef, setFullResolution]);
+
+    const width = videoRef.current.videoWidth;
+    const height = videoRef.current.videoHeight;
+
+    // iOS Safari occasionally reports 0x0 for videoWidth/videoHeight
+    // Poll with requestAnimationFrame until dimensions become available (or timeout).
+    if (width > 0 && height > 0) {
+      applyVideoDimensions(width, height);
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 120; // ~2 seconds at 60fps
+    const tryGetDims = () => {
+      if (!videoRef.current) return;
+      const w = videoRef.current.videoWidth;
+      const h = videoRef.current.videoHeight;
+      if (w > 0 && h > 0) {
+        applyVideoDimensions(w, h);
+        return;
+      }
+      if (attempts < maxAttempts) {
+        attempts += 1;
+        requestAnimationFrame(tryGetDims);
+      }
+    };
+    requestAnimationFrame(tryGetDims);
+  }, [videoRef, applyVideoDimensions]);
 
   useEffect(() => {
     if (!videoRef.current) {
@@ -129,6 +159,8 @@ export default function HlsVideoPlayer({
     if (!videoRef.current) {
       return;
     }
+
+    setLoadedMetadata(false);
 
     const currentPlaybackRate = videoRef.current.playbackRate;
 
@@ -255,7 +287,7 @@ export default function HlsVideoPlayer({
             volume: true,
             seek: true,
             playbackRate: true,
-            plusUpload: config?.plus?.enabled == true,
+            plusUpload: isAdmin && config?.plus?.enabled == true,
             fullscreen: supportsFullscreen,
           }}
           setControlsOpen={setControlsOpen}
@@ -318,6 +350,7 @@ export default function HlsVideoPlayer({
         {isDetailMode &&
           camera &&
           currentTime &&
+          loadedMetadata &&
           videoDimensions.width > 0 &&
           videoDimensions.height > 0 && (
             <div className="absolute z-50 size-full">

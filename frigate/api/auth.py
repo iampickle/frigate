@@ -32,10 +32,178 @@ from frigate.models import User
 
 logger = logging.getLogger(__name__)
 
+
+def require_admin_by_default():
+    """
+    Global admin requirement dependency for all endpoints by default.
+
+    This is set as the default dependency on the FastAPI app to ensure all
+    endpoints require admin access unless explicitly overridden with
+    allow_public(), allow_any_authenticated(), or require_role().
+
+    Port 5000 (internal) always has admin role set by the /auth endpoint,
+    so this check passes automatically for internal requests.
+
+    Certain paths are exempted from the global admin check because they must
+    be accessible before authentication (login, auth) or they have their own
+    route-level authorization dependencies that handle access control.
+    """
+    # Paths that have route-level auth dependencies and should bypass global admin check
+    # These paths still have authorization - it's handled by their route-level dependencies
+    EXEMPT_PATHS = {
+        # Public auth endpoints (allow_public)
+        "/auth",
+        "/auth/first_time_login",
+        "/login",
+        # Authenticated user endpoints (allow_any_authenticated)
+        "/logout",
+        "/profile",
+        # Public info endpoints (allow_public)
+        "/",
+        "/version",
+        "/config/schema.json",
+        # Authenticated user endpoints (allow_any_authenticated)
+        "/metrics",
+        "/stats",
+        "/stats/history",
+        "/config",
+        "/config/raw",
+        "/vainfo",
+        "/nvinfo",
+        "/labels",
+        "/sub_labels",
+        "/plus/models",
+        "/recognized_license_plates",
+        "/timeline",
+        "/timeline/hourly",
+        "/recordings/storage",
+        "/recordings/summary",
+        "/recordings/unavailable",
+        "/go2rtc/streams",
+        "/event_ids",
+        "/events",
+        "/exports",
+    }
+
+    # Path prefixes that should be exempt (for paths with parameters)
+    EXEMPT_PREFIXES = (
+        "/logs/",  # /logs/{service}
+        "/review",  # /review, /review/{id}, /review/summary, /review_ids, etc.
+        "/reviews/",  # /reviews/viewed, /reviews/delete
+        "/events/",  # /events/{id}/thumbnail, /events/summary, etc. (camera-scoped)
+        "/export/",  # /export/{camera}/start/..., /export/{id}/rename, /export/{id}
+        "/go2rtc/streams/",  # /go2rtc/streams/{camera}
+        "/users/",  # /users/{username}/password (has own auth)
+        "/preview/",  # /preview/{file}/thumbnail.jpg
+        "/exports/",  # /exports/{export_id}
+        "/vod/",  # /vod/{camera_name}/...
+        "/notifications/",  # /notifications/pubkey, /notifications/register
+    )
+
+    async def admin_checker(request: Request):
+        path = request.url.path
+
+        # Check exact path matches
+        if path in EXEMPT_PATHS:
+            return
+
+        # Check prefix matches for parameterized paths
+        if path.startswith(EXEMPT_PREFIXES):
+            return
+
+        # Dynamic camera path exemption:
+        # Any path whose first segment matches a configured camera name should
+        # bypass the global admin requirement. These endpoints enforce access
+        # via route-level dependencies (e.g. require_camera_access) to ensure
+        # per-camera authorization. This allows non-admin authenticated users
+        # (e.g. viewer role) to access camera-specific resources without
+        # needing admin privileges.
+        try:
+            if path.startswith("/"):
+                first_segment = path.split("/", 2)[1]
+                if (
+                    first_segment
+                    and first_segment in request.app.frigate_config.cameras
+                ):
+                    return
+        except Exception:
+            pass
+
+        # For all other paths, require admin role
+        # Port 5000 (internal) requests have admin role set automatically
+        role = request.headers.get("remote-role")
+        if role == "admin":
+            return
+
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied. A user with the admin role is required.",
+        )
+
+    return admin_checker
+
+
+def _is_authenticated(request: Request) -> bool:
+    """
+    Helper to determine if a request is from an authenticated user.
+
+    Returns True if the request has a valid authenticated user (not anonymous).
+    Port 5000 internal requests are considered anonymous despite having admin role.
+    """
+    username = request.headers.get("remote-user")
+    return username is not None and username != "anonymous"
+
+
+def allow_public():
+    """
+    Override dependency to allow unauthenticated access to an endpoint.
+
+    Use this for endpoints that should be publicly accessible without
+    authentication, such as login page, health checks, or pre-auth info.
+
+    Example:
+        @router.get("/public-endpoint", dependencies=[Depends(allow_public())])
+    """
+
+    async def public_checker(request: Request):
+        return  # Always allow
+
+    return public_checker
+
+
+def allow_any_authenticated():
+    """
+    Override dependency to allow any authenticated user (bypass admin requirement).
+
+    Allows:
+    - Port 5000 internal requests (have admin role despite anonymous user)
+    - Any authenticated user with a real username (not "anonymous")
+
+    Rejects:
+    - Port 8971 requests with anonymous user (auth disabled, no proxy auth)
+
+    Example:
+        @router.get("/authenticated-endpoint", dependencies=[Depends(allow_any_authenticated())])
+    """
+
+    async def auth_checker(request: Request):
+        # Port 5000 requests have admin role and should be allowed
+        role = request.headers.get("remote-role")
+        if role == "admin":
+            return
+
+        # Otherwise require a real authenticated user (not anonymous)
+        if not _is_authenticated(request):
+            raise HTTPException(status_code=401, detail="Authentication required")
+        return
+
+    return auth_checker
+
+
 router = APIRouter(tags=[Tags.auth])
 
 
-@router.get("/auth/first_time_login")
+@router.get("/auth/first_time_login", dependencies=[Depends(allow_public())])
 def first_time_login(request: Request):
     """Return whether the admin first-time login help flag is set in config.
 
@@ -352,7 +520,7 @@ def resolve_role(
 
 
 # Endpoints
-@router.get("/auth")
+@router.get("/auth", dependencies=[Depends(allow_public())])
 def auth(request: Request):
     auth_config: AuthConfig = request.app.frigate_config.auth
     proxy_config: ProxyConfig = request.app.frigate_config.proxy
@@ -478,7 +646,7 @@ def auth(request: Request):
         return fail_response
 
 
-@router.get("/profile")
+@router.get("/profile", dependencies=[Depends(allow_any_authenticated())])
 def profile(request: Request):
     username = request.headers.get("remote-user", "anonymous")
     role = request.headers.get("remote-role", "viewer")
@@ -492,7 +660,7 @@ def profile(request: Request):
     )
 
 
-@router.get("/logout")
+@router.get("/logout", dependencies=[Depends(allow_any_authenticated())])
 def logout(request: Request):
     auth_config: AuthConfig = request.app.frigate_config.auth
     response = RedirectResponse("/login", status_code=303)
@@ -503,7 +671,7 @@ def logout(request: Request):
 limiter = Limiter(key_func=get_remote_addr)
 
 
-@router.post("/login")
+@router.post("/login", dependencies=[Depends(allow_public())])
 @limiter.limit(limit_value=rateLimiter.get_limit)
 def login(request: Request, body: AppPostLoginBody):
     JWT_COOKIE_NAME = request.app.frigate_config.auth.cookie_name
@@ -578,13 +746,21 @@ def create_user(
     return JSONResponse(content={"username": body.username})
 
 
-@router.delete("/users/{username}")
-def delete_user(username: str):
+@router.delete("/users/{username}", dependencies=[Depends(require_role(["admin"]))])
+def delete_user(request: Request, username: str):
+    # Prevent deletion of the built-in admin user
+    if username == "admin":
+        return JSONResponse(
+            content={"message": "Cannot delete admin user"}, status_code=403
+        )
+
     User.delete_by_id(username)
     return JSONResponse(content={"success": True})
 
 
-@router.put("/users/{username}/password")
+@router.put(
+    "/users/{username}/password", dependencies=[Depends(allow_any_authenticated())]
+)
 async def update_password(
     request: Request,
     username: str,

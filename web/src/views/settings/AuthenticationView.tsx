@@ -478,33 +478,32 @@ export default function AuthenticationView({
                       <TableCell className="text-right">
                         <TooltipProvider>
                           <div className="flex items-center justify-end gap-2">
-                            {user.username !== "admin" &&
-                              user.username !== "viewer" && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      className="h-8 px-2"
-                                      onClick={() => {
-                                        setSelectedUser(user.username);
-                                        setSelectedUserRole(
-                                          user.role || "viewer",
-                                        );
-                                        setShowRoleChange(true);
-                                      }}
-                                    >
-                                      <LuUserCog className="size-3.5" />
-                                      <span className="ml-1.5 hidden sm:inline-block">
-                                        {t("role.title", { ns: "common" })}
-                                      </span>
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{t("users.table.changeRole")}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
+                            {user.username !== "admin" && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-2"
+                                    onClick={() => {
+                                      setSelectedUser(user.username);
+                                      setSelectedUserRole(
+                                        user.role || "viewer",
+                                      );
+                                      setShowRoleChange(true);
+                                    }}
+                                  >
+                                    <LuUserCog className="size-3.5" />
+                                    <span className="ml-1.5 hidden sm:inline-block">
+                                      {t("role.title", { ns: "common" })}
+                                    </span>
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t("users.table.changeRole")}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
 
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -784,7 +783,7 @@ export default function AuthenticationView({
   return (
     <div className="flex size-full flex-col">
       <Toaster position="top-center" closeButton={true} />
-      <div className="scrollbar-container order-last mb-10 mt-2 flex h-full w-full flex-col overflow-y-auto pb-2 md:order-none md:mr-3 md:mt-0">
+      <div className="scrollbar-container order-last mb-2 mt-2 flex h-full w-full flex-col overflow-y-auto pb-2 md:order-none md:mr-3 md:mt-0">
         {section === "users" && UsersSection}
         {section === "roles" && RolesSection}
         {!section && (

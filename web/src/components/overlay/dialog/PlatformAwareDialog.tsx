@@ -44,8 +44,8 @@ export default function PlatformAwareDialog({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerTrigger asChild>{trigger}</DrawerTrigger>
-        <DrawerContent className="max-h-[75dvh] overflow-hidden px-4">
-          {content}
+        <DrawerContent className="max-h-[75dvh] overflow-hidden">
+          <div className={contentClassName}>{content}</div>
         </DrawerContent>
       </Drawer>
     );
@@ -113,7 +113,12 @@ export function PlatformAwareSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+    <Sheet
+      open={open}
+      onOpenChange={onOpenChange}
+      modal={false}
+      enableHistoryBack
+    >
       <SheetTrigger asChild className={triggerClassName}>
         {trigger}
       </SheetTrigger>

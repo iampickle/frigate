@@ -23,7 +23,7 @@ from markupsafe import escape
 from peewee import SQL, fn, operator
 from pydantic import ValidationError
 
-from frigate.api.auth import require_role
+from frigate.api.auth import allow_any_authenticated, allow_public, require_role
 from frigate.api.defs.query.app_query_parameters import AppTimelineHourlyQueryParameters
 from frigate.api.defs.request.app_body import AppConfigSetBody
 from frigate.api.defs.tags import Tags
@@ -56,29 +56,33 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=[Tags.app])
 
 
-@router.get("/", response_class=PlainTextResponse)
+@router.get(
+    "/", response_class=PlainTextResponse, dependencies=[Depends(allow_public())]
+)
 def is_healthy():
     return "Frigate is running. Alive and healthy!"
 
 
-@router.get("/config/schema.json")
+@router.get("/config/schema.json", dependencies=[Depends(allow_public())])
 def config_schema(request: Request):
     return Response(
         content=request.app.frigate_config.schema_json(), media_type="application/json"
     )
 
 
-@router.get("/version", response_class=PlainTextResponse)
+@router.get(
+    "/version", response_class=PlainTextResponse, dependencies=[Depends(allow_public())]
+)
 def version():
     return VERSION
 
 
-@router.get("/stats")
+@router.get("/stats", dependencies=[Depends(allow_any_authenticated())])
 def stats(request: Request):
     return JSONResponse(content=request.app.stats_emitter.get_latest_stats())
 
 
-@router.get("/stats/history")
+@router.get("/stats/history", dependencies=[Depends(allow_any_authenticated())])
 def stats_history(request: Request, keys: str = None):
     if keys:
         keys = keys.split(",")
@@ -86,7 +90,7 @@ def stats_history(request: Request, keys: str = None):
     return JSONResponse(content=request.app.stats_emitter.get_stats_history(keys))
 
 
-@router.get("/metrics")
+@router.get("/metrics", dependencies=[Depends(allow_any_authenticated())])
 def metrics(request: Request):
     """Expose Prometheus metrics endpoint and update metrics with latest stats"""
     # Retrieve the latest statistics and update the Prometheus metrics
@@ -103,7 +107,7 @@ def metrics(request: Request):
     return Response(content=content, media_type=content_type)
 
 
-@router.get("/config")
+@router.get("/config", dependencies=[Depends(allow_any_authenticated())])
 def config(request: Request):
     config_obj: FrigateConfig = request.app.frigate_config
     config: dict[str, dict[str, Any]] = config_obj.model_dump(
@@ -179,7 +183,37 @@ def config(request: Request):
     return JSONResponse(content=config)
 
 
-@router.get("/config/raw")
+@router.get("/config/raw_paths", dependencies=[Depends(require_role(["admin"]))])
+def config_raw_paths(request: Request):
+    """Admin-only endpoint that returns camera paths and go2rtc streams without credential masking."""
+    config_obj: FrigateConfig = request.app.frigate_config
+
+    raw_paths = {"cameras": {}, "go2rtc": {"streams": {}}}
+
+    # Extract raw camera ffmpeg input paths
+    for camera_name, camera in config_obj.cameras.items():
+        raw_paths["cameras"][camera_name] = {
+            "ffmpeg": {
+                "inputs": [
+                    {"path": input.path, "roles": input.roles}
+                    for input in camera.ffmpeg.inputs
+                ]
+            }
+        }
+
+    # Extract raw go2rtc stream URLs
+    go2rtc_config = config_obj.go2rtc.model_dump(
+        mode="json", warnings="none", exclude_none=True
+    )
+    for stream_name, stream in go2rtc_config.get("streams", {}).items():
+        if stream is None:
+            continue
+        raw_paths["go2rtc"]["streams"][stream_name] = stream
+
+    return JSONResponse(content=raw_paths)
+
+
+@router.get("/config/raw", dependencies=[Depends(allow_any_authenticated())])
 def config_raw():
     config_file = find_config_file()
 
@@ -422,7 +456,7 @@ def config_set(request: Request, body: AppConfigSetBody):
     )
 
 
-@router.get("/vainfo")
+@router.get("/vainfo", dependencies=[Depends(allow_any_authenticated())])
 def vainfo():
     vainfo = vainfo_hwaccel()
     return JSONResponse(
@@ -442,12 +476,16 @@ def vainfo():
     )
 
 
-@router.get("/nvinfo")
+@router.get("/nvinfo", dependencies=[Depends(allow_any_authenticated())])
 def nvinfo():
     return JSONResponse(content=get_nvidia_driver_info())
 
 
-@router.get("/logs/{service}", tags=[Tags.logs])
+@router.get(
+    "/logs/{service}",
+    tags=[Tags.logs],
+    dependencies=[Depends(allow_any_authenticated())],
+)
 async def logs(
     service: str = Path(enum=["frigate", "nginx", "go2rtc"]),
     download: Optional[str] = None,
@@ -555,7 +593,7 @@ def restart():
     )
 
 
-@router.get("/labels")
+@router.get("/labels", dependencies=[Depends(allow_any_authenticated())])
 def get_labels(camera: str = ""):
     try:
         if camera:
@@ -573,7 +611,7 @@ def get_labels(camera: str = ""):
     return JSONResponse(content=labels)
 
 
-@router.get("/sub_labels")
+@router.get("/sub_labels", dependencies=[Depends(allow_any_authenticated())])
 def get_sub_labels(split_joined: Optional[int] = None):
     try:
         events = Event.select(Event.sub_label).distinct()
@@ -604,7 +642,7 @@ def get_sub_labels(split_joined: Optional[int] = None):
     return JSONResponse(content=sub_labels)
 
 
-@router.get("/plus/models")
+@router.get("/plus/models", dependencies=[Depends(allow_any_authenticated())])
 def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
     if not request.app.frigate_config.plus_api.is_active():
         return JSONResponse(
@@ -646,7 +684,9 @@ def plusModels(request: Request, filterByCurrentModelDetector: bool = False):
     return JSONResponse(content=validModels)
 
 
-@router.get("/recognized_license_plates")
+@router.get(
+    "/recognized_license_plates", dependencies=[Depends(allow_any_authenticated())]
+)
 def get_recognized_license_plates(split_joined: Optional[int] = None):
     try:
         query = (
@@ -680,7 +720,7 @@ def get_recognized_license_plates(split_joined: Optional[int] = None):
     return JSONResponse(content=recognized_license_plates)
 
 
-@router.get("/timeline")
+@router.get("/timeline", dependencies=[Depends(allow_any_authenticated())])
 def timeline(camera: str = "all", limit: int = 100, source_id: Optional[str] = None):
     clauses = []
 
@@ -717,7 +757,7 @@ def timeline(camera: str = "all", limit: int = 100, source_id: Optional[str] = N
     return JSONResponse(content=[t for t in timeline])
 
 
-@router.get("/timeline/hourly")
+@router.get("/timeline/hourly", dependencies=[Depends(allow_any_authenticated())])
 def hourly_timeline(params: AppTimelineHourlyQueryParameters = Depends()):
     """Get hourly summary for timeline."""
     cameras = params.cameras

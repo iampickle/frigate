@@ -314,11 +314,10 @@ function GeneralFilterButton({
     <PlatformAwareDialog
       trigger={trigger}
       content={content}
-      contentClassName={
-        isDesktop
-          ? "scrollbar-container h-auto max-h-[80dvh] overflow-y-auto"
-          : "max-h-[75dvh] overflow-hidden p-4"
-      }
+      contentClassName={cn(
+        "scrollbar-container h-auto overflow-y-auto",
+        isDesktop ? "max-h-[80dvh]" : "px-4",
+      )}
       open={open}
       onOpenChange={(open) => {
         if (!open) {
@@ -510,11 +509,10 @@ function SortTypeButton({
     <PlatformAwareDialog
       trigger={trigger}
       content={content}
-      contentClassName={
-        isDesktop
-          ? "scrollbar-container h-auto max-h-[80dvh] overflow-y-auto"
-          : "max-h-[75dvh] overflow-hidden p-4"
-      }
+      contentClassName={cn(
+        "scrollbar-container h-auto overflow-y-auto",
+        isDesktop ? "max-h-[80dvh]" : "px-4",
+      )}
       open={open}
       onOpenChange={(open) => {
         if (!open) {
@@ -572,9 +570,8 @@ export function SortTypeContent({
             className="w-full space-y-1"
           >
             {availableSortTypes.map((value) => (
-              <div className="flex flex-row gap-2">
+              <div key={value} className="flex flex-row gap-2">
                 <RadioGroupItem
-                  key={value}
                   value={value}
                   id={`sort-${value}`}
                   className={

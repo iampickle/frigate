@@ -22,6 +22,7 @@ from peewee import JOIN, DoesNotExist, fn, operator
 from playhouse.shortcuts import model_to_dict
 
 from frigate.api.auth import (
+    allow_any_authenticated,
     get_allowed_cameras_for_filter,
     require_camera_access,
     require_role,
@@ -69,6 +70,7 @@ router = APIRouter(tags=[Tags.events])
 @router.get(
     "/events",
     response_model=list[EventResponse],
+    dependencies=[Depends(allow_any_authenticated())],
     summary="Get events",
     description="Returns a list of events.",
 )
@@ -343,6 +345,7 @@ def events(
 @router.get(
     "/events/explore",
     response_model=list[EventResponse],
+    dependencies=[Depends(allow_any_authenticated())],
     summary="Get summary of objects.",
     description="""Gets a summary of objects from the database.
     Returns a list of objects with a max of `limit` objects for each label.
@@ -435,6 +438,7 @@ def events_explore(
 @router.get(
     "/event_ids",
     response_model=list[EventResponse],
+    dependencies=[Depends(allow_any_authenticated())],
     summary="Get events by ids.",
     description="""Gets events by a list of ids.
     Returns a list of events.
@@ -468,6 +472,7 @@ async def event_ids(ids: str, request: Request):
 
 @router.get(
     "/events/search",
+    dependencies=[Depends(allow_any_authenticated())],
     summary="Search events.",
     description="""Searches for events in the database.
     Returns a list of events.
@@ -808,7 +813,7 @@ def events_search(
     return JSONResponse(content=processed_events)
 
 
-@router.get("/events/summary")
+@router.get("/events/summary", dependencies=[Depends(allow_any_authenticated())])
 def events_summary(
     params: EventsSummaryQueryParams = Depends(),
     allowed_cameras: List[str] = Depends(get_allowed_cameras_for_filter),
@@ -918,6 +923,7 @@ def events_summary(
 @router.get(
     "/events/{event_id}",
     response_model=EventResponse,
+    dependencies=[Depends(allow_any_authenticated())],
     summary="Get event by id.",
     description="Gets an event by its id.",
 )
@@ -961,6 +967,7 @@ def set_retain(event_id: str):
 @router.post(
     "/events/{event_id}/plus",
     response_model=EventUploadPlusResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Send event to Frigate+.",
     description="""Sends an event to Frigate+.
     Returns a success message or an error if the event is not found.
@@ -1101,6 +1108,7 @@ async def send_to_plus(request: Request, event_id: str, body: SubmitPlusBody = N
 @router.put(
     "/events/{event_id}/false_positive",
     response_model=EventUploadPlusResponse,
+    dependencies=[Depends(require_role(["admin"]))],
     summary="Submit false positive to Frigate+",
     description="""Submit an event as a false positive to Frigate+.
     This endpoint is the same as the standard Frigate+ submission endpoint,
@@ -1753,7 +1761,7 @@ def create_trigger_embedding(
                     body.data, (base64.b64encode(thumbnail).decode("ASCII"))
                 )
 
-        if embedding is None:
+        if not embedding:
             return JSONResponse(
                 content={
                     "success": False,
@@ -1781,9 +1789,8 @@ def create_trigger_embedding(
                 logger.debug(
                     f"Writing thumbnail for trigger with data {body.data} in {camera_name}."
                 )
-            except Exception as e:
-                logger.error(e.with_traceback())
-                logger.error(
+            except Exception:
+                logger.exception(
                     f"Failed to write thumbnail for trigger with data {body.data} in {camera_name}"
                 )
 
@@ -1807,8 +1814,8 @@ def create_trigger_embedding(
             status_code=200,
         )
 
-    except Exception as e:
-        logger.error(e.with_traceback())
+    except Exception:
+        logger.exception("Error creating trigger embedding")
         return JSONResponse(
             content={
                 "success": False,
@@ -1889,7 +1896,7 @@ def update_trigger_embedding(
                 body.data, (base64.b64encode(thumbnail).decode("ASCII"))
             )
 
-        if embedding is None:
+        if not embedding:
             return JSONResponse(
                 content={
                     "success": False,
@@ -1917,9 +1924,8 @@ def update_trigger_embedding(
                     logger.debug(
                         f"Deleted thumbnail for trigger with data {trigger.data} in {camera_name}."
                     )
-                except Exception as e:
-                    logger.error(e.with_traceback())
-                    logger.error(
+                except Exception:
+                    logger.exception(
                         f"Failed to delete thumbnail for trigger with data {trigger.data} in {camera_name}"
                     )
 
@@ -1958,9 +1964,8 @@ def update_trigger_embedding(
                 logger.debug(
                     f"Writing thumbnail for trigger with data {body.data} in {camera_name}."
                 )
-            except Exception as e:
-                logger.error(e.with_traceback())
-                logger.error(
+            except Exception:
+                logger.exception(
                     f"Failed to write thumbnail for trigger with data {body.data} in {camera_name}"
                 )
 
@@ -1972,8 +1977,8 @@ def update_trigger_embedding(
             status_code=200,
         )
 
-    except Exception as e:
-        logger.error(e.with_traceback())
+    except Exception:
+        logger.exception("Error updating trigger embedding")
         return JSONResponse(
             content={
                 "success": False,
@@ -2033,9 +2038,8 @@ def delete_trigger_embedding(
             logger.debug(
                 f"Deleted thumbnail for trigger with data {trigger.data} in {camera_name}."
             )
-        except Exception as e:
-            logger.error(e.with_traceback())
-            logger.error(
+        except Exception:
+            logger.exception(
                 f"Failed to delete thumbnail for trigger with data {trigger.data} in {camera_name}"
             )
 
@@ -2047,8 +2051,8 @@ def delete_trigger_embedding(
             status_code=200,
         )
 
-    except Exception as e:
-        logger.error(e.with_traceback())
+    except Exception:
+        logger.exception("Error deleting trigger embedding")
         return JSONResponse(
             content={
                 "success": False,

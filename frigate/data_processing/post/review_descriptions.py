@@ -12,6 +12,7 @@ from typing import Any
 
 import cv2
 from peewee import DoesNotExist
+from titlecase import titlecase
 
 from frigate.comms.embeddings_updater import EmbeddingsRequestEnum
 from frigate.comms.inter_process import InterProcessRequestor
@@ -132,17 +133,15 @@ class ReviewDescriptionProcessor(PostProcessorApi):
 
             if image_source == ImageSourceEnum.recordings:
                 duration = final_data["end_time"] - final_data["start_time"]
-                buffer_extension = min(
-                    10, max(2, duration * RECORDING_BUFFER_EXTENSION_PERCENT)
-                )
+                buffer_extension = min(5, duration * RECORDING_BUFFER_EXTENSION_PERCENT)
 
                 # Ensure minimum total duration for short review items
                 # This provides better context for brief events
                 total_duration = duration + (2 * buffer_extension)
                 if total_duration < MIN_RECORDING_DURATION:
-                    # Expand buffer to reach minimum duration, still respecting max of 10s per side
+                    # Expand buffer to reach minimum duration, still respecting max of 5s per side
                     additional_buffer_per_side = (MIN_RECORDING_DURATION - duration) / 2
-                    buffer_extension = min(10, additional_buffer_per_side)
+                    buffer_extension = min(5, additional_buffer_per_side)
 
                 thumbs = self.get_recording_frames(
                     camera,
@@ -457,14 +456,14 @@ def run_analysis(
 
     for i, verified_label in enumerate(final_data["data"]["verified_objects"]):
         object_type = verified_label.replace("-verified", "").replace("_", " ")
-        name = sub_labels_list[i].replace("_", " ").title()
+        name = titlecase(sub_labels_list[i].replace("_", " "))
         unified_objects.append(f"{name} ({object_type})")
 
     for label in objects_list:
         if "-verified" in label:
             continue
         elif label in labelmap_objects:
-            object_type = label.replace("_", " ").title()
+            object_type = titlecase(label.replace("_", " "))
 
             if label in attribute_labels:
                 unified_objects.append(f"{object_type} (delivery/service)")

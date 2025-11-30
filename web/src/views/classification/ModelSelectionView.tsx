@@ -16,7 +16,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FaFolderPlus } from "react-icons/fa";
 import { MdModelTraining } from "react-icons/md";
-import { LuPencil, LuTrash2 } from "react-icons/lu";
 import { FiMoreVertical } from "react-icons/fi";
 import useSWR from "swr";
 import Heading from "@/components/ui/heading";
@@ -40,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import BlurredIconButton from "@/components/button/BlurredIconButton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const allModelTypes = ["objects", "states"] as const;
 type ModelType = (typeof allModelTypes)[number];
@@ -333,9 +333,7 @@ function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
             <ImageShadowOverlay lowerClassName="h-[30%] z-0" />
           </>
         ) : (
-          <div className="flex size-full items-center justify-center bg-background_alt">
-            <MdModelTraining className="size-16 text-muted-foreground" />
-          </div>
+          <Skeleton className="flex size-full items-center justify-center" />
         )}
         <div className="absolute bottom-2 left-3 text-lg text-white smart-capitalize">
           {config.name}
@@ -352,11 +350,9 @@ function ModelCard({ config, onClick, onUpdate, onDelete }: ModelCardProps) {
               onClick={(e) => e.stopPropagation()}
             >
               <DropdownMenuItem onClick={handleEditClick}>
-                <LuPencil className="mr-2 size-4" />
                 <span>{t("button.edit", { ns: "common" })}</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleDeleteClick}>
-                <LuTrash2 className="mr-2 size-4" />
                 <span>{t("button.delete", { ns: "common" })}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>

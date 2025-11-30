@@ -2,7 +2,7 @@ import logging
 import re
 from typing import Optional
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from joserfc.jwk import OctKey
 from playhouse.sqliteq import SqliteQueueDatabase
@@ -25,8 +25,7 @@ from frigate.api import (
     preview,
     review,
 )
-from frigate.api.auth import get_jwt_secret, limiter
-from frigate.comms.dispatcher import Dispatcher
+from frigate.api.auth import get_jwt_secret, limiter, require_admin_by_default
 from frigate.comms.event_metadata_updater import (
     EventMetadataPublisher,
 )
@@ -64,12 +63,15 @@ def create_fastapi_app(
     stats_emitter: StatsEmitter,
     event_metadata_updater: EventMetadataPublisher,
     config_publisher: CameraConfigUpdatePublisher,
-    dispatcher: Optional[Dispatcher] = None,
+    enforce_default_admin: bool = True,
 ):
     logger.info("Starting FastAPI app")
     app = FastAPI(
         debug=False,
         swagger_ui_parameters={"apisSorter": "alpha", "operationsSorter": "alpha"},
+        dependencies=[Depends(require_admin_by_default())]
+        if enforce_default_admin
+        else [],
     )
 
     # update the request_address with the x-forwarded-for header from nginx

@@ -219,7 +219,9 @@ export default function EventView({
                 position: "top-center",
                 action: (
                   <a href="/export" target="_blank" rel="noopener noreferrer">
-                    <Button>View</Button>
+                    <Button>
+                      {t("export.toast.view", { ns: "components/dialog" })}
+                    </Button>
                   </a>
                 ),
               },
@@ -799,7 +801,7 @@ function DetectionReview({
             (itemsToReview ?? 0) > 0 && (
               <div className="col-span-full flex items-center justify-center">
                 <Button
-                  className="text-white"
+                  className="text-balance text-white"
                   aria-label={t("markTheseItemsAsReviewed")}
                   variant="select"
                   onClick={() => {
