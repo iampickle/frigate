@@ -65,7 +65,7 @@
     "showReviewed": "显示已核查的项目"
   },
   "motion": {
-    "showMotionOnly": "仅显示运动"
+    "showMotionOnly": "仅显示画面变动"
   },
   "explore": {
     "settings": {
@@ -133,5 +133,9 @@
     },
     "count_one": "{{count}} 个分类",
     "count_other": "{{count}} 个分类"
+  },
+  "attributes": {
+    "label": "分类属性",
+    "all": "所有属性"
   }
 }

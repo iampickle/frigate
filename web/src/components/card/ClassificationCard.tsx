@@ -4,10 +4,10 @@ import { cn } from "@/lib/utils";
 import {
   ClassificationItemData,
   ClassificationThreshold,
+  ClassifiedEvent,
 } from "@/types/classification";
-import { Event } from "@/types/event";
 import { forwardRef, useMemo, useRef, useState } from "react";
-import { isDesktop, isMobile, isMobileOnly } from "react-device-detect";
+import { isDesktop, isIOS, isMobile, isMobileOnly } from "react-device-detect";
 import { useTranslation } from "react-i18next";
 import TimeAgo from "../dynamic/TimeAgo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -40,6 +40,7 @@ type ClassificationCardProps = {
   data: ClassificationItemData;
   threshold?: ClassificationThreshold;
   selected: boolean;
+  clickable: boolean;
   i18nLibrary: string;
   showArea?: boolean;
   count?: number;
@@ -56,6 +57,7 @@ export const ClassificationCard = forwardRef<
     data,
     threshold,
     selected,
+    clickable,
     i18nLibrary,
     showArea = true,
     count,
@@ -101,11 +103,12 @@ export const ClassificationCard = forwardRef<
     <div
       ref={ref}
       className={cn(
-        "relative flex size-full cursor-pointer flex-col overflow-hidden rounded-lg outline outline-[3px]",
+        "relative flex size-full flex-col overflow-hidden rounded-lg outline outline-[3px]",
         className,
         selected
           ? "shadow-selected outline-selected"
           : "outline-transparent duration-500",
+        clickable && "cursor-pointer",
       )}
       onClick={(e) => {
         const isMeta = e.metaKey || e.ctrlKey;
@@ -127,6 +130,15 @@ export const ClassificationCard = forwardRef<
           imgClassName,
           isMobile && "w-full",
         )}
+        style={
+          isIOS
+            ? {
+                WebkitUserSelect: "none",
+                WebkitTouchCallout: "none",
+              }
+            : undefined
+        }
+        draggable={false}
         loading="lazy"
         onLoad={() => setImageLoaded(true)}
         src={`${baseUrl}${data.filepath}`}
@@ -151,8 +163,12 @@ export const ClassificationCard = forwardRef<
             data.score != undefined ? "text-xs" : "text-sm",
           )}
         >
-          <div className="smart-capitalize">
-            {data.name == "unknown" ? t("details.unknown") : data.name}
+          <div className="break-all smart-capitalize">
+            {data.name == "unknown"
+              ? t("details.unknown")
+              : data.name == "none"
+                ? t("details.none")
+                : data.name}
           </div>
           {data.score != undefined && (
             <div
@@ -177,7 +193,7 @@ export const ClassificationCard = forwardRef<
 
 type GroupedClassificationCardProps = {
   group: ClassificationItemData[];
-  event?: Event;
+  classifiedEvent?: ClassifiedEvent;
   threshold?: ClassificationThreshold;
   selectedItems: string[];
   i18nLibrary: string;
@@ -188,7 +204,7 @@ type GroupedClassificationCardProps = {
 };
 export function GroupedClassificationCard({
   group,
-  event,
+  classifiedEvent,
   threshold,
   selectedItems,
   i18nLibrary,
@@ -217,20 +233,21 @@ export function GroupedClassificationCard({
     });
 
     if (!best) {
-      return group.at(-1);
+      best = group.at(-1)!;
     }
 
     const bestTyped: ClassificationItemData = best;
     return {
       ...bestTyped,
-      name: event
-        ? event.sub_label && event.sub_label !== "none"
-          ? event.sub_label
-          : t(noClassificationLabel)
-        : bestTyped.name,
-      score: event?.data?.sub_label_score,
+      name:
+        classifiedEvent?.label && classifiedEvent.label !== "none"
+          ? classifiedEvent.label
+          : classifiedEvent
+            ? t(noClassificationLabel)
+            : bestTyped.name,
+      score: classifiedEvent?.score,
     };
-  }, [group, event, noClassificationLabel, t]);
+  }, [group, classifiedEvent, noClassificationLabel, t]);
 
   const bestScoreStatus = useMemo(() => {
     if (!bestItem?.score || !threshold) {
@@ -275,6 +292,7 @@ export function GroupedClassificationCard({
         data={bestItem}
         threshold={threshold}
         selected={selectedItems.includes(bestItem.filename)}
+        clickable={true}
         i18nLibrary={i18nLibrary}
         count={group.length}
         onClick={(_, meta) => {
@@ -316,36 +334,38 @@ export function GroupedClassificationCard({
                 )}
               >
                 <ContentTitle className="flex items-center gap-2 font-normal capitalize">
-                  {event?.sub_label && event.sub_label !== "none"
-                    ? event.sub_label
+                  {classifiedEvent?.label && classifiedEvent.label !== "none"
+                    ? classifiedEvent.label
                     : t(noClassificationLabel)}
-                  {event?.sub_label && event.sub_label !== "none" && (
-                    <div className="flex items-center gap-1">
-                      <div
-                        className={cn(
-                          "",
-                          bestScoreStatus == "match" && "text-success",
-                          bestScoreStatus == "potential" && "text-orange-400",
-                          bestScoreStatus == "unknown" && "text-danger",
-                        )}
-                      >{`${Math.round((event.data.sub_label_score || 0) * 100)}%`}</div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            className="focus:outline-none"
-                            aria-label={t("details.scoreInfo", {
-                              ns: i18nLibrary,
-                            })}
-                          >
-                            <LuInfo className="size-3" />
-                          </button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-80 text-sm">
-                          {t("details.scoreInfo", { ns: i18nLibrary })}
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  )}
+                  {classifiedEvent?.label &&
+                    classifiedEvent.label !== "none" &&
+                    classifiedEvent.score !== undefined && (
+                      <div className="flex items-center gap-1">
+                        <div
+                          className={cn(
+                            "",
+                            bestScoreStatus == "match" && "text-success",
+                            bestScoreStatus == "potential" && "text-orange-400",
+                            bestScoreStatus == "unknown" && "text-danger",
+                          )}
+                        >{`${Math.round((classifiedEvent.score || 0) * 100)}%`}</div>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              className="focus:outline-none"
+                              aria-label={t("details.scoreInfo", {
+                                ns: i18nLibrary,
+                              })}
+                            >
+                              <LuInfo className="size-3" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 text-sm">
+                            {t("details.scoreInfo", { ns: i18nLibrary })}
+                          </PopoverContent>
+                        </Popover>
+                      </div>
+                    )}
                 </ContentTitle>
                 <ContentDescription className={cn("", isMobile && "px-2")}>
                   {time && (
@@ -357,30 +377,34 @@ export function GroupedClassificationCard({
                   )}
                 </ContentDescription>
               </div>
-              {isDesktop && (
-                <div className="flex flex-row justify-between">
-                  {event && (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div
-                          className="cursor-pointer"
-                          tabIndex={-1}
-                          onClick={() => {
-                            navigate(`/explore?event_id=${event.id}`);
-                          }}
-                        >
-                          <LuSearch className="size-4 text-secondary-foreground" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipPortal>
-                        <TooltipContent>
-                          {t("details.item.button.viewInExplore", {
-                            ns: "views/explore",
-                          })}
-                        </TooltipContent>
-                      </TooltipPortal>
-                    </Tooltip>
+              {classifiedEvent && (
+                <div
+                  className={cn(
+                    "flex",
+                    isDesktop && "flex-row justify-between",
+                    isMobile && "absolute right-4 top-8",
                   )}
+                >
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div
+                        className="cursor-pointer"
+                        tabIndex={-1}
+                        onClick={() => {
+                          navigate(`/explore?event_id=${classifiedEvent.id}`);
+                        }}
+                      >
+                        <LuSearch className="size-4 text-secondary-foreground" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipPortal>
+                      <TooltipContent>
+                        {t("details.item.button.viewInExplore", {
+                          ns: "views/explore",
+                        })}
+                      </TooltipContent>
+                    </TooltipPortal>
+                  </Tooltip>
                 </div>
               )}
             </Header>
@@ -397,6 +421,7 @@ export function GroupedClassificationCard({
                     data={data}
                     threshold={threshold}
                     selected={false}
+                    clickable={false}
                     i18nLibrary={i18nLibrary}
                     onClick={() => {}}
                   >

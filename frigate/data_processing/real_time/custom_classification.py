@@ -21,7 +21,7 @@ from frigate.config.classification import (
     ObjectClassificationType,
 )
 from frigate.const import CLIPS_DIR, MODEL_CACHE_DIR
-from frigate.log import redirect_output_to_logger
+from frigate.log import suppress_stderr_during
 from frigate.types import TrackedObjectUpdateTypesEnum
 from frigate.util.builtin import EventsPerSecond, InferenceSpeed, load_labels
 from frigate.util.object import box_overlaps, calculate_region
@@ -52,7 +52,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         self.requestor = requestor
         self.model_dir = os.path.join(MODEL_CACHE_DIR, self.model_config.name)
         self.train_dir = os.path.join(CLIPS_DIR, self.model_config.name, "train")
-        self.interpreter: Interpreter | None = None
+        self.interpreter: Interpreter = None
         self.tensor_input_details: dict[str, Any] | None = None
         self.tensor_output_details: dict[str, Any] | None = None
         self.labelmap: dict[int, str] = {}
@@ -72,8 +72,12 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         self.last_run = datetime.datetime.now().timestamp()
         self.__build_detector()
 
-    @redirect_output_to_logger(logger, logging.DEBUG)
     def __build_detector(self) -> None:
+        try:
+            from tflite_runtime.interpreter import Interpreter
+        except ModuleNotFoundError:
+            from tensorflow.lite.python.interpreter import Interpreter
+
         model_path = os.path.join(self.model_dir, "model.tflite")
         labelmap_path = os.path.join(self.model_dir, "labelmap.txt")
 
@@ -84,11 +88,13 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
             self.labelmap = {}
             return
 
-        self.interpreter = Interpreter(
-            model_path=model_path,
-            num_threads=2,
-        )
-        self.interpreter.allocate_tensors()
+        # Suppress TFLite delegate creation messages that bypass Python logging
+        with suppress_stderr_during("tflite_interpreter_init"):
+            self.interpreter = Interpreter(
+                model_path=model_path,
+                num_threads=2,
+            )
+            self.interpreter.allocate_tensors()
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
         self.labelmap = load_labels(labelmap_path, prefill=0)
@@ -224,32 +230,43 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         if not should_run:
             return
 
-        x, y, x2, y2 = calculate_region(
-            frame.shape,
-            crop[0],
-            crop[1],
-            crop[2],
-            crop[3],
-            224,
-            1.0,
-        )
-
         rgb = cv2.cvtColor(frame, cv2.COLOR_YUV2RGB_I420)
-        frame = rgb[
-            y:y2,
-            x:x2,
-        ]
+        height, width = rgb.shape[:2]
 
-        if frame.shape != (224, 224):
-            try:
-                resized_frame = cv2.resize(frame, (224, 224))
-            except Exception:
-                logger.warning("Failed to resize image for state classification")
-                return
+        # Convert normalized crop coordinates to pixel values
+        x1 = int(camera_config.crop[0] * width)
+        y1 = int(camera_config.crop[1] * height)
+        x2 = int(camera_config.crop[2] * width)
+        y2 = int(camera_config.crop[3] * height)
+
+        # Clip coordinates to frame boundaries
+        x1 = max(0, min(x1, width))
+        y1 = max(0, min(y1, height))
+        x2 = max(0, min(x2, width))
+        y2 = max(0, min(y2, height))
+
+        if x2 <= x1 or y2 <= y1:
+            logger.warning(
+                f"Invalid crop coordinates for {camera}: [{x1}, {y1}, {x2}, {y2}]"
+            )
+            return
+
+        frame = rgb[y1:y2, x1:x2]
+
+        try:
+            resized_frame = cv2.resize(frame, (224, 224))
+        except Exception:
+            logger.warning("Failed to resize image for state classification")
+            return
 
         if self.interpreter is None:
             # When interpreter is None, always save (score is 0.0, which is < 1.0)
             if self._should_save_image(camera, "unknown", 0.0):
+                save_attempts = (
+                    self.model_config.save_attempts
+                    if self.model_config.save_attempts is not None
+                    else 100
+                )
                 write_classification_attempt(
                     self.train_dir,
                     cv2.cvtColor(frame, cv2.COLOR_RGB2BGR),
@@ -257,6 +274,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
                     now,
                     "unknown",
                     0.0,
+                    max_files=save_attempts,
                 )
             return
 
@@ -277,6 +295,11 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         detected_state = self.labelmap[best_id]
 
         if self._should_save_image(camera, detected_state, score):
+            save_attempts = (
+                self.model_config.save_attempts
+                if self.model_config.save_attempts is not None
+                else 100
+            )
             write_classification_attempt(
                 self.train_dir,
                 cv2.cvtColor(frame, cv2.COLOR_RGB2BGR),
@@ -284,6 +307,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
                 now,
                 detected_state,
                 score,
+                max_files=save_attempts,
             )
 
         if score < self.model_config.threshold:
@@ -333,7 +357,7 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         self.model_config = model_config
         self.model_dir = os.path.join(MODEL_CACHE_DIR, self.model_config.name)
         self.train_dir = os.path.join(CLIPS_DIR, self.model_config.name, "train")
-        self.interpreter: Interpreter | None = None
+        self.interpreter: Interpreter = None
         self.sub_label_publisher = sub_label_publisher
         self.requestor = requestor
         self.tensor_input_details: dict[str, Any] | None = None
@@ -354,7 +378,6 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
 
         self.__build_detector()
 
-    @redirect_output_to_logger(logger, logging.DEBUG)
     def __build_detector(self) -> None:
         model_path = os.path.join(self.model_dir, "model.tflite")
         labelmap_path = os.path.join(self.model_dir, "labelmap.txt")
@@ -366,11 +389,13 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
             self.labelmap = {}
             return
 
-        self.interpreter = Interpreter(
-            model_path=model_path,
-            num_threads=2,
-        )
-        self.interpreter.allocate_tensors()
+        # Suppress TFLite delegate creation messages that bypass Python logging
+        with suppress_stderr_during("tflite_interpreter_init"):
+            self.interpreter = Interpreter(
+                model_path=model_path,
+                num_threads=2,
+            )
+            self.interpreter.allocate_tensors()
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
         self.labelmap = load_labels(labelmap_path, prefill=0)
@@ -482,6 +507,11 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
                 return
 
         if self.interpreter is None:
+            save_attempts = (
+                self.model_config.save_attempts
+                if self.model_config.save_attempts is not None
+                else 200
+            )
             write_classification_attempt(
                 self.train_dir,
                 cv2.cvtColor(crop, cv2.COLOR_RGB2BGR),
@@ -489,7 +519,15 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
                 now,
                 "unknown",
                 0.0,
+                max_files=save_attempts,
             )
+
+            # Still track history even when model doesn't exist to respect MAX_OBJECT_CLASSIFICATIONS
+            # Add an entry with "unknown" label so the history limit is enforced
+            if object_id not in self.classification_history:
+                self.classification_history[object_id] = []
+
+            self.classification_history[object_id].append(("unknown", 0.0, now))
             return
 
         input = np.expand_dims(resized_crop, axis=0)
@@ -506,6 +544,11 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         score = round(probs[best_id], 2)
         self.__update_metrics(datetime.datetime.now().timestamp() - now)
 
+        save_attempts = (
+            self.model_config.save_attempts
+            if self.model_config.save_attempts is not None
+            else 200
+        )
         write_classification_attempt(
             self.train_dir,
             cv2.cvtColor(crop, cv2.COLOR_RGB2BGR),
@@ -513,7 +556,7 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
             now,
             self.labelmap[best_id],
             score,
-            max_files=200,
+            max_files=save_attempts,
         )
 
         if score < self.model_config.threshold:
@@ -616,15 +659,15 @@ def write_classification_attempt(
     os.makedirs(folder, exist_ok=True)
     cv2.imwrite(file, frame)
 
-    files = sorted(
-        filter(lambda f: (f.endswith(".webp")), os.listdir(folder)),
-        key=lambda f: os.path.getctime(os.path.join(folder, f)),
-        reverse=True,
-    )
-
     # delete oldest face image if maximum is reached
     try:
+        files = sorted(
+            filter(lambda f: (f.endswith(".webp")), os.listdir(folder)),
+            key=lambda f: os.path.getctime(os.path.join(folder, f)),
+            reverse=True,
+        )
+
         if len(files) > max_files:
             os.unlink(os.path.join(folder, files[-1]))
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         pass

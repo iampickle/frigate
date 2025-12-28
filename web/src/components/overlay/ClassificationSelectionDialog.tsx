@@ -131,7 +131,9 @@ export default function ClassificationSelectionDialog({
                   className="flex cursor-pointer gap-2 smart-capitalize"
                   onClick={() => onCategorizeImage(category)}
                 >
-                  {category.replaceAll("_", " ")}
+                  {category === "none"
+                    ? t("details.none")
+                    : category.replaceAll("_", " ")}
                 </SelectorItem>
               ))}
               <Separator />

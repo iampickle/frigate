@@ -92,7 +92,7 @@ class ReviewDescriptionProcessor(PostProcessorApi):
 
         pixels_per_image = width * height
         tokens_per_image = pixels_per_image / 1250
-        prompt_tokens = 3500
+        prompt_tokens = 3800
         response_tokens = 300
         available_tokens = context_size - prompt_tokens - response_tokens
         max_frames = int(available_tokens / tokens_per_image)
@@ -209,10 +209,22 @@ class ReviewDescriptionProcessor(PostProcessorApi):
             logger.debug(
                 f"Found GenAI Review Summary request for {start_ts} to {end_ts}"
             )
-            items: list[dict[str, Any]] = [
-                r["data"]["metadata"]
+
+            # Query all review segments with camera and time information
+            segments: list[dict[str, Any]] = [
+                {
+                    "camera": r["camera"].replace("_", " ").title(),
+                    "start_time": r["start_time"],
+                    "end_time": r["end_time"],
+                    "metadata": r["data"]["metadata"],
+                }
                 for r in (
-                    ReviewSegment.select(ReviewSegment.data)
+                    ReviewSegment.select(
+                        ReviewSegment.camera,
+                        ReviewSegment.start_time,
+                        ReviewSegment.end_time,
+                        ReviewSegment.data,
+                    )
                     .where(
                         (ReviewSegment.data["metadata"].is_null(False))
                         & (ReviewSegment.start_time < end_ts)
@@ -224,20 +236,71 @@ class ReviewDescriptionProcessor(PostProcessorApi):
                 )
             ]
 
-            if len(items) == 0:
+            if len(segments) == 0:
                 logger.debug("No review items with metadata found during time period")
-                return "No activity was found during this time."
+                return "No activity was found during this time period."
 
-            important_items = list(
-                filter(
-                    lambda item: item.get("potential_threat_level", 0) > 0
-                    or item.get("other_concerns"),
-                    items,
-                )
-            )
+            # Identify primary items (important items that need review)
+            primary_segments = [
+                seg
+                for seg in segments
+                if seg["metadata"].get("potential_threat_level", 0) > 0
+                or seg["metadata"].get("other_concerns")
+            ]
 
-            if not important_items:
+            if not primary_segments:
                 return "No concerns were found during this time period."
+
+            # Build hierarchical structure: each primary event with its contextual items
+            events_with_context = []
+
+            for primary_seg in primary_segments:
+                # Start building the primary event structure
+                primary_item = copy.deepcopy(primary_seg["metadata"])
+                primary_item["camera"] = primary_seg["camera"]
+                primary_item["start_time"] = primary_seg["start_time"]
+                primary_item["end_time"] = primary_seg["end_time"]
+
+                # Find overlapping contextual items from other cameras
+                primary_start = primary_seg["start_time"]
+                primary_end = primary_seg["end_time"]
+                primary_camera = primary_seg["camera"]
+                contextual_items = []
+                seen_contextual_cameras = set()
+
+                for seg in segments:
+                    seg_camera = seg["camera"]
+
+                    if seg_camera == primary_camera:
+                        continue
+
+                    if seg in primary_segments:
+                        continue
+
+                    seg_start = seg["start_time"]
+                    seg_end = seg["end_time"]
+
+                    if seg_start < primary_end and primary_start < seg_end:
+                        # Avoid duplicates if same camera has multiple overlapping segments
+                        if seg_camera not in seen_contextual_cameras:
+                            contextual_item = copy.deepcopy(seg["metadata"])
+                            contextual_item["camera"] = seg_camera
+                            contextual_item["start_time"] = seg_start
+                            contextual_item["end_time"] = seg_end
+                            contextual_items.append(contextual_item)
+                            seen_contextual_cameras.add(seg_camera)
+
+                # Add context array to primary item
+                primary_item["context"] = contextual_items
+                events_with_context.append(primary_item)
+
+            total_context_items = sum(
+                len(event.get("context", [])) for event in events_with_context
+            )
+            logger.debug(
+                f"Summary includes {len(events_with_context)} primary events with "
+                f"{total_context_items} total contextual items"
+            )
 
             if self.config.review.genai.debug_save_thumbnails:
                 Path(
@@ -247,7 +310,8 @@ class ReviewDescriptionProcessor(PostProcessorApi):
             return self.genai_client.generate_review_summary(
                 start_ts,
                 end_ts,
-                important_items,
+                events_with_context,
+                self.config.review.genai.preferred_language,
                 self.config.review.genai.debug_save_thumbnails,
             )
         else:

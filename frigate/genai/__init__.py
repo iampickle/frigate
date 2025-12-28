@@ -101,6 +101,7 @@ When forming your description:
 Your response MUST be a flat JSON object with:
 - `title` (string): A concise, direct title that describes the primary action or event in the sequence, not just what you literally see. Use spatial context when available to make titles more meaningful. When multiple objects/actions are present, prioritize whichever is most prominent or occurs first. Use names from "Objects in Scene" based on what you visually observe. If you see both a name and an unidentified object of the same type but visually observe only one person/object, use ONLY the name. Examples: "Joe walking dog", "Person taking out trash", "Vehicle arriving in driveway", "Joe accessing vehicle", "Person leaving porch for driveway".
 - `scene` (string): A narrative description of what happens across the sequence from start to finish, in chronological order. Start by describing how the sequence begins, then describe the progression of events. **Describe all significant movements and actions in the order they occur.** For example, if a vehicle arrives and then a person exits, describe both actions sequentially. **Only describe actions you can actually observe happening in the frames provided.** Do not infer or assume actions that aren't visible (e.g., if you see someone walking but never see them sit, don't say they sat down). Include setting, detected objects, and their observable actions. Avoid speculation or filling in assumed behaviors. Your description should align with and support the threat level you assign.
+- `shortSummary` (string): A brief 2-sentence summary of the scene, suitable for notifications. Should capture the key activity and context without full detail. This should be a condensed version of the scene description above.
 - `confidence` (float): 0-1 confidence in your analysis. Higher confidence when objects/actions are clearly visible and context is unambiguous. Lower confidence when the sequence is unclear, objects are partially obscured, or context is ambiguous.
 - `potential_threat_level` (integer): 0, 1, or 2 as defined in "Normal Activity Patterns for This Property" above. Your threat level must be consistent with your scene description and the guidance above.
 {get_concern_prompt()}
@@ -177,56 +178,66 @@ Each line represents a detection state, not necessarily unique individuals. Pare
         self,
         start_ts: float,
         end_ts: float,
-        segments: list[dict[str, Any]],
+        events: list[dict[str, Any]],
+        preferred_language: str | None,
         debug_save: bool,
     ) -> str | None:
         """Generate a summary of review item descriptions over a period of time."""
         time_range = f"{datetime.datetime.fromtimestamp(start_ts).strftime('%B %d, %Y at %I:%M %p')} to {datetime.datetime.fromtimestamp(end_ts).strftime('%B %d, %Y at %I:%M %p')}"
         timeline_summary_prompt = f"""
-You are a security officer.
-Time range: {time_range}.
-Input: JSON list with "title", "scene", "confidence", "potential_threat_level" (1-2), "other_concerns".
+You are a security officer writing a concise security report.
 
-Task: Write a concise, human-presentable security report in markdown format.
+Time range: {time_range}
 
-Rules for the report:
+Input format: Each event is a JSON object with:
+- "title", "scene", "confidence", "potential_threat_level" (0-2), "other_concerns", "camera", "time", "start_time", "end_time"
+- "context": array of related events from other cameras that occurred during overlapping time periods
 
-- Title & overview
-  - Start with:
-    # Security Summary - {time_range}
-  - Write a 1-2 sentence situational overview capturing the general pattern of the period.
+**Note: Use the "scene" field for event descriptions in the report. Ignore any "shortSummary" field if present.**
 
-- Event details
-  - Present events in chronological order as a bullet list.
-  - **If multiple events occur within the same minute or overlapping time range, COMBINE them into a single bullet.**
-    - Summarize the distinct activities as sub-points under the shared timestamp.
-  - If no timestamp is given, preserve order but label as “Time not specified.”
-  - Use bold timestamps for clarity.
-  - Group bullets under subheadings when multiple events fall into the same category (e.g., Vehicle Activity, Porch Activity, Unusual Behavior).
+Report Structure - Use this EXACT format:
 
-- Threat levels
-  - Always show the threat level for each event using these labels:
-    - Threat level 0: "Normal"
-    - Threat level 1: "Needs review"
-    - Threat level 2: "Security concern"
-  - Format as (threat level: Normal), (threat level: Needs review), or (threat level: Security concern).
-  - If multiple events at the same time share the same threat level, only state it once.
+# Security Summary - {time_range}
 
-- Final assessment
-  - End with a Final Assessment section.
-  - If all events are threat level 0:
-    Final assessment: Only normal residential activity observed during this period.
-  - If threat level 1 events are present:
-    Final assessment: Some activity requires review but no security concerns identified.
-  - If threat level 2 events are present, clearly summarize them as Security concerns requiring immediate attention.
+## Overview
+[Write 1-2 sentences summarizing the overall activity pattern during this period.]
 
-- Conciseness
-  - Do not repeat benign clothing/appearance details unless they distinguish individuals.
-  - Summarize similar routine events instead of restating full scene descriptions.
+---
+
+## Timeline
+
+[Group events by time periods (e.g., "Morning (6:00 AM - 12:00 PM)", "Afternoon (12:00 PM - 5:00 PM)", "Evening (5:00 PM - 9:00 PM)", "Night (9:00 PM - 6:00 AM)"). Use appropriate time blocks based on when events occurred.]
+
+### [Time Block Name]
+
+**HH:MM AM/PM** | [Camera Name] | [Threat Level Indicator]
+- [Event title]: [Clear description incorporating contextual information from the "context" array]
+- Context: [If context array has items, mention them here, e.g., "Delivery truck present on Front Driveway Cam (HH:MM AM/PM)"]
+- Assessment: [Brief assessment incorporating context - if context explains the event, note it here]
+
+[Repeat for each event in chronological order within the time block]
+
+---
+
+## Summary
+[One sentence summarizing the period. If all events are normal/explained: "Routine activity observed." If review needed: "Some activity requires review but no security concerns." If security concerns: "Security concerns requiring immediate attention."]
+
+Guidelines:
+- List ALL events in chronological order, grouped by time blocks
+- Threat level indicators: ✓ Normal, ⚠️ Needs review, 🔴 Security concern
+- Integrate contextual information naturally - use the "context" array to enrich each event's description
+- If context explains the event (e.g., delivery truck explains person at door), describe it accordingly (e.g., "delivery person" not "unidentified person")
+- Be concise but informative - focus on what happened and what it means
+- If contextual information makes an event clearly normal, reflect that in your assessment
+- Only create time blocks that have events - don't create empty sections
 """
 
-        for item in segments:
-            timeline_summary_prompt += f"\n{item}"
+        timeline_summary_prompt += "\n\nEvents:\n"
+        for event in events:
+            timeline_summary_prompt += f"\n{event}\n"
+
+        if preferred_language:
+            timeline_summary_prompt += f"\nProvide your answer in {preferred_language}"
 
         if debug_save:
             with open(

@@ -26,6 +26,7 @@ from frigate.api import (
     review,
 )
 from frigate.api.auth import get_jwt_secret, limiter, require_admin_by_default
+from frigate.comms.dispatcher import Dispatcher
 from frigate.comms.event_metadata_updater import (
     EventMetadataPublisher,
 )
@@ -64,6 +65,7 @@ def create_fastapi_app(
     event_metadata_updater: EventMetadataPublisher,
     config_publisher: CameraConfigUpdatePublisher,
     enforce_default_admin: bool = True,
+    dispatcher: Optional[Dispatcher] = None,
 ):
     logger.info("Starting FastAPI app")
     app = FastAPI(

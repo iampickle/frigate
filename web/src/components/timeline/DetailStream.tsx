@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { Link } from "react-router-dom";
 import { Switch } from "@/components/ui/switch";
-import { usePersistence } from "@/hooks/use-persistence";
+import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { isDesktop } from "react-device-detect";
 import { resolveZoneName } from "@/hooks/use-zone-friendly-name";
 import { PiSlidersHorizontalBold } from "react-icons/pi";
@@ -58,7 +58,7 @@ export default function DetailStream({
   const effectiveTime = currentTime - annotationOffset / 1000;
   const [upload, setUpload] = useState<Event | undefined>(undefined);
   const [controlsExpanded, setControlsExpanded] = useState(false);
-  const [alwaysExpandActive, setAlwaysExpandActive] = usePersistence(
+  const [alwaysExpandActive, setAlwaysExpandActive] = useUserPersistence(
     "detailStreamActiveExpanded",
     true,
   );
@@ -316,7 +316,7 @@ function ReviewGroup({
     date_style: "medium",
   });
 
-  const shouldFetchEvents = review?.data?.detections?.length > 0;
+  const shouldFetchEvents = open && review?.data?.detections?.length > 0;
 
   const { data: fetchedEvents, isValidating } = useSWR<Event[]>(
     shouldFetchEvents
@@ -345,9 +345,9 @@ function ReviewGroup({
   }
 
   const reviewInfo = useMemo(() => {
-    const objectCount = fetchedEvents
-      ? fetchedEvents.length
-      : (review.data.objects ?? []).length;
+    const detectionsCount =
+      review.data?.detections?.length ?? (review.data?.objects ?? []).length;
+    const objectCount = fetchedEvents ? fetchedEvents.length : detectionsCount;
 
     return `${t("detail.trackedObject", { count: objectCount })}`;
   }, [review, t, fetchedEvents]);
@@ -409,7 +409,14 @@ function ReviewGroup({
             <div className="flex flex-col gap-0.5">
               {review.data.metadata?.title && (
                 <div className="mb-1 flex min-w-0 items-center gap-1 text-sm text-primary-variant">
-                  <MdAutoAwesome className="size-3 shrink-0" />
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <MdAutoAwesome className="size-3 shrink-0" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {review.data.metadata.title}
+                    </TooltipContent>
+                  </Tooltip>
                   <span className="truncate">{review.data.metadata.title}</span>
                 </div>
               )}

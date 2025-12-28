@@ -203,7 +203,9 @@ class EmbeddingMaintainer(threading.Thread):
         # post processors
         self.post_processors: list[PostProcessorApi] = []
 
-        if any(c.review.genai.enabled_in_config for c in self.config.cameras.values()):
+        if self.genai_client is not None and any(
+            c.review.genai.enabled_in_config for c in self.config.cameras.values()
+        ):
             self.post_processors.append(
                 ReviewDescriptionProcessor(
                     self.config, self.requestor, self.metrics, self.genai_client
@@ -244,7 +246,9 @@ class EmbeddingMaintainer(threading.Thread):
             )
             self.post_processors.append(semantic_trigger_processor)
 
-        if any(c.objects.genai.enabled_in_config for c in self.config.cameras.values()):
+        if self.genai_client is not None and any(
+            c.objects.genai.enabled_in_config for c in self.config.cameras.values()
+        ):
             self.post_processors.append(
                 ObjectDescriptionProcessor(
                     self.config,
@@ -522,6 +526,8 @@ class EmbeddingMaintainer(threading.Thread):
                     )
                 elif isinstance(processor, ObjectDescriptionProcessor):
                     if not updated_db:
+                        # Still need to cleanup tracked events even if not processing
+                        processor.cleanup_event(event_id)
                         continue
 
                     processor.process_data(
@@ -627,7 +633,7 @@ class EmbeddingMaintainer(threading.Thread):
 
         camera, frame_name, _, _, motion_boxes, _ = data
 
-        if not camera or len(motion_boxes) == 0:
+        if not camera or len(motion_boxes) == 0 or camera not in self.config.cameras:
             return
 
         camera_config = self.config.cameras[camera]

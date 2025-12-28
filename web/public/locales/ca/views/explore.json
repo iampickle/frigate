@@ -100,13 +100,15 @@
           "updatedSublabel": "Subetiqueta actualitzada amb èxit.",
           "updatedLPR": "Matrícula actualitzada amb èxit.",
           "regenerate": "El {{provider}} ha sol·licitat una nova descripció. En funció de la velocitat del vostre proveïdor, la nova descripció pot trigar un temps a regenerar-se.",
-          "audioTranscription": "S'ha sol·licitat correctament la transcripció d'àudio. Depenent de la velocitat del vostre servidor Frigate, la transcripció pot trigar una estona a completar-se."
+          "audioTranscription": "S'ha sol·licitat correctament la transcripció d'àudio. Depenent de la velocitat del vostre servidor Frigate, la transcripció pot trigar una estona a completar-se.",
+          "updatedAttributes": "Els atributs s'han actualitzat correctament."
         },
         "error": {
           "regenerate": "No s'ha pogut contactar amb {{provider}} per obtenir una nova descripció: {{errorMessage}}",
           "updatedSublabelFailed": "No s'ha pogut actualitzar la subetiqueta: {{errorMessage}}",
           "updatedLPRFailed": "No s'ha pogut actualitzar la matrícula: {{errorMessage}}",
-          "audioTranscription": "Error en demanar la transcripció d'audio {{errorMessage}}"
+          "audioTranscription": "Error en demanar la transcripció d'audio {{errorMessage}}",
+          "updatedAttributesFailed": "No s'han pogut actualitzar els atributs: {{errorMessage}}"
         }
       },
       "title": "Revisar detalls de l'element",
@@ -162,7 +164,12 @@
     },
     "score": {
       "label": "Puntuació"
-    }
+    },
+    "editAttributes": {
+      "title": "Edita els atributs",
+      "desc": "Seleccioneu els atributs de classificació per a aquesta {{label}}"
+    },
+    "attributes": "Atributs de classificació"
   },
   "searchResult": {
     "tooltip": "S'ha identificat {{type}} amb una confiança del {{confidence}}%",
@@ -220,6 +227,10 @@
     "viewTrackingDetails": {
       "label": "Veure detalls de seguiment",
       "aria": "Mostra els detalls de seguiment"
+    },
+    "downloadCleanSnapshot": {
+      "label": "Descarrega la instantània neta",
+      "aria": "Descarrega la instantània neta"
     }
   },
   "noTrackedObjects": "No s'han trobat objectes rastrejats",
@@ -263,7 +274,8 @@
       "header": {
         "zones": "Zones",
         "ratio": "Ràtio",
-        "area": "Àrea"
+        "area": "Àrea",
+        "score": "Puntuació"
       }
     },
     "annotationSettings": {
@@ -278,7 +290,7 @@
         "millisecondsToOffset": "Millisegons per l'òfset de detecció d'anotacions per. <em>Per defecte: 0</em>",
         "tips": "Reduïu el valor si la reproducció del vídeo es troba per davant dels quadres i els punts de ruta, i augmenteu-lo si es troba per darrere. Aquest valor pot ser negatiu.",
         "toast": {
-          "success": "L'Òfset d'anotació per a {{camera}} s'ha desat al fitxer de configuració. Reinicieu Frigate per aplicar els canvis."
+          "success": "El desplaçament de l'anotació per {{camera}} s'ha desat al fitxer de configuració."
         }
       }
     },

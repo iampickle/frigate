@@ -446,7 +446,7 @@ export function TrackingDetails({
       (event.end_time ?? Date.now() / 1000) + annotationOffset / 1000;
     const startTime = eventStartRecord - REVIEW_PADDING;
     const endTime = eventEndRecord + REVIEW_PADDING;
-    const playlist = `${baseUrl}vod/${event.camera}/start/${startTime}/end/${endTime}/index.m3u8`;
+    const playlist = `${baseUrl}vod/clip/${event.camera}/start/${startTime}/end/${endTime}/index.m3u8`;
 
     return {
       playlist,
@@ -526,7 +526,7 @@ export function TrackingDetails({
 
       <div
         className={cn(
-          "flex items-center justify-center",
+          "flex items-start justify-center",
           isDesktop && "overflow-hidden",
           cameraAspect === "tall" ? "max-h-[50dvh] lg:max-h-[70dvh]" : "w-full",
           cameraAspect === "tall" && isMobileOnly && "w-full",
@@ -622,7 +622,10 @@ export function TrackingDetails({
 
       <div
         className={cn(
-          isDesktop && "justify-between overflow-hidden md:basis-2/5",
+          isDesktop && "justify-start overflow-hidden",
+          aspectRatio > 1 && aspectRatio < 1.5
+            ? "lg:basis-3/5"
+            : "lg:basis-2/5",
         )}
       >
         {isDesktop && tabs && (
@@ -632,121 +635,114 @@ export function TrackingDetails({
         )}
         <div
           className={cn(
-            isDesktop && "scrollbar-container h-full overflow-y-auto",
+            isDesktop && "scrollbar-container max-h-[70vh] overflow-y-auto",
           )}
         >
           {config?.cameras[event.camera]?.onvif.autotracking
             .enabled_in_config && (
-            <div className="mb-2 ml-3 text-sm text-danger">
+            <div className="mb-4 ml-3 text-sm text-danger">
               {t("trackingDetails.autoTrackingTips")}
             </div>
           )}
 
-          <div className="mt-4">
-            <div
-              className={cn("rounded-md bg-background_alt px-0 py-3 md:px-2")}
-            >
-              <div className="flex w-full items-center justify-between">
+          <div className={cn("rounded-md bg-background_alt px-0 py-3 md:px-2")}>
+            <div className="flex w-full items-center justify-between">
+              <div
+                className="flex items-center gap-2 font-medium"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // event.start_time is detect time, convert to record
+                  handleSeekToTime(
+                    (event.start_time ?? 0) + annotationOffset / 1000,
+                  );
+                }}
+                role="button"
+              >
                 <div
-                  className="flex items-center gap-2 font-medium"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // event.start_time is detect time, convert to record
-                    handleSeekToTime(
-                      (event.start_time ?? 0) + annotationOffset / 1000,
-                    );
-                  }}
-                  role="button"
+                  className={cn(
+                    "relative ml-2 rounded-full bg-muted-foreground p-2",
+                  )}
                 >
-                  <div
-                    className={cn(
-                      "relative ml-2 rounded-full bg-muted-foreground p-2",
-                    )}
-                  >
-                    {getIconForLabel(
-                      event.sub_label ? event.label + "-verified" : event.label,
-                      "size-4 text-white",
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="capitalize">{label}</span>
-                    <div className="md:text-md flex items-center text-xs text-secondary-foreground">
-                      {formattedStart ?? ""}
-                      {event.end_time != null ? (
-                        <> - {formattedEnd}</>
-                      ) : (
-                        <div className="inline-block">
-                          <ActivityIndicator className="ml-3 size-4" />
-                        </div>
-                      )}
-                    </div>
-                    {event.data?.recognized_license_plate && (
-                      <>
-                        <span className="text-secondary-foreground">·</span>
-                        <div className="text-sm text-secondary-foreground">
-                          <Link
-                            to={`/explore?recognized_license_plate=${event.data.recognized_license_plate}`}
-                            className="text-sm"
-                          >
-                            {event.data.recognized_license_plate}
-                          </Link>
-                        </div>
-                      </>
+                  {getIconForLabel(
+                    event.sub_label ? event.label + "-verified" : event.label,
+                    "size-4 text-white",
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="capitalize">{label}</span>
+                  <div className="md:text-md flex items-center text-xs text-secondary-foreground">
+                    {formattedStart ?? ""}
+                    {event.end_time != null ? (
+                      <> - {formattedEnd}</>
+                    ) : (
+                      <div className="inline-block">
+                        <ActivityIndicator className="ml-3 size-4" />
+                      </div>
                     )}
                   </div>
+                  {event.data?.recognized_license_plate && (
+                    <>
+                      <span className="text-secondary-foreground">·</span>
+                      <div className="text-sm text-secondary-foreground">
+                        <Link
+                          to={`/explore?recognized_license_plate=${event.data.recognized_license_plate}`}
+                          className="text-sm"
+                        >
+                          {event.data.recognized_license_plate}
+                        </Link>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
+            </div>
 
-              <div className="mt-2">
-                {!eventSequence ? (
-                  <ActivityIndicator className="size-2" size={2} />
-                ) : eventSequence.length === 0 ? (
-                  <div className="py-2 text-muted-foreground">
-                    {t("detail.noObjectDetailData", { ns: "views/events" })}
-                  </div>
-                ) : (
+            <div className="mt-2">
+              {!eventSequence ? (
+                <ActivityIndicator className="size-2" size={2} />
+              ) : eventSequence.length === 0 ? (
+                <div className="py-2 text-muted-foreground">
+                  {t("detail.noObjectDetailData", { ns: "views/events" })}
+                </div>
+              ) : (
+                <div className="-pb-2 relative mx-0" ref={timelineContainerRef}>
                   <div
-                    className="-pb-2 relative mx-0"
-                    ref={timelineContainerRef}
-                  >
+                    className="absolute -top-2 left-6 z-0 w-0.5 -translate-x-1/2 bg-secondary-foreground"
+                    style={{ bottom: lineBottomOffsetPx }}
+                  />
+                  {isWithinEventRange && (
                     <div
-                      className="absolute -top-2 left-6 z-0 w-0.5 -translate-x-1/2 bg-secondary-foreground"
-                      style={{ bottom: lineBottomOffsetPx }}
+                      className="absolute left-6 z-[5] w-0.5 -translate-x-1/2 bg-selected transition-all duration-300"
+                      style={{
+                        top: `${lineTopOffsetPx}px`,
+                        height: `${blueLineHeightPx}px`,
+                      }}
                     />
-                    {isWithinEventRange && (
-                      <div
-                        className="absolute left-6 z-[5] w-0.5 -translate-x-1/2 bg-selected transition-all duration-300"
-                        style={{
-                          top: `${lineTopOffsetPx}px`,
-                          height: `${blueLineHeightPx}px`,
-                        }}
-                      />
-                    )}
-                    <div className="space-y-2">
-                      {eventSequence.map((item, idx) => {
-                        return (
-                          <div
-                            key={`${item.timestamp}-${item.source_id ?? ""}-${idx}`}
-                            ref={(el) => {
-                              rowRefs.current[idx] = el;
-                            }}
-                          >
-                            <LifecycleIconRow
-                              item={item}
-                              event={event}
-                              onClick={() => handleLifecycleClick(item)}
-                              setSelectedZone={setSelectedZone}
-                              getZoneColor={getZoneColor}
-                              effectiveTime={effectiveTime}
-                              isTimelineActive={isWithinEventRange}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
+                  )}
+                  <div className="space-y-2">
+                    {eventSequence.map((item, idx) => {
+                      return (
+                        <div
+                          key={`${item.timestamp}-${item.source_id ?? ""}-${idx}`}
+                          ref={(el) => {
+                            rowRefs.current[idx] = el;
+                          }}
+                        >
+                          <LifecycleIconRow
+                            item={item}
+                            event={event}
+                            onClick={() => handleLifecycleClick(item)}
+                            setSelectedZone={setSelectedZone}
+                            getZoneColor={getZoneColor}
+                            effectiveTime={effectiveTime}
+                            isTimelineActive={isWithinEventRange}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -900,96 +896,99 @@ function LifecycleIconRow({
             <div className="text-md flex items-start break-words text-left">
               {getLifecycleItemDescription(item)}
             </div>
-            <div className="my-2 ml-2 flex flex-col flex-wrap items-start gap-1.5 text-xs text-secondary-foreground">
-              <div className="flex items-center gap-1.5">
-                <span className="text-primary-variant">
-                  {t("trackingDetails.lifecycleItemDesc.header.score")}
-                </span>
-                <span className="font-medium text-primary">{score}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-primary-variant">
-                  {t("trackingDetails.lifecycleItemDesc.header.ratio")}
-                </span>
-                <span className="font-medium text-primary">{ratio}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-primary-variant">
-                  {t("trackingDetails.lifecycleItemDesc.header.area")}{" "}
-                  {attributeAreaPx !== undefined &&
-                    attributeAreaPct !== undefined && (
-                      <span className="text-primary-variant">
-                        ({getTranslatedLabel(item.data.label)})
-                      </span>
-                    )}
-                </span>
-                {areaPx !== undefined && areaPct !== undefined ? (
-                  <span className="font-medium text-primary">
-                    {t("information.pixels", { ns: "common", area: areaPx })} ·{" "}
-                    {areaPct}%
+            {/* Only show Score/Ratio/Area for object events, not for audio (heard) or manual API (external) events */}
+            {item.class_type !== "heard" && item.class_type !== "external" && (
+              <div className="my-2 ml-2 flex flex-col flex-wrap items-start gap-1.5 text-xs text-secondary-foreground">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary-variant">
+                    {t("trackingDetails.lifecycleItemDesc.header.score")}
                   </span>
-                ) : (
-                  <span>N/A</span>
-                )}
-              </div>
-              {attributeAreaPx !== undefined &&
-                attributeAreaPct !== undefined && (
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-primary-variant">
-                      {t("trackingDetails.lifecycleItemDesc.header.area")} (
-                      {getTranslatedLabel(item.data.attribute)})
-                    </span>
-                    <span className="font-medium text-primary">
-                      {t("information.pixels", {
-                        ns: "common",
-                        area: attributeAreaPx,
-                      })}{" "}
-                      · {attributeAreaPct}%
-                    </span>
-                  </div>
-                )}
-
-              {item.data?.zones && item.data.zones.length > 0 && (
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  {item.data.zones.map((zone, zidx) => {
-                    const color = getZoneColor(zone)?.join(",") ?? "0,0,0";
-                    return (
-                      <Badge
-                        key={`${zone}-${zidx}`}
-                        variant="outline"
-                        className="inline-flex cursor-pointer items-center gap-2"
-                        onClick={(e: React.MouseEvent) => {
-                          e.stopPropagation();
-                          setSelectedZone(zone);
-                        }}
-                        style={{
-                          borderColor: `rgba(${color}, 0.6)`,
-                          background: `rgba(${color}, 0.08)`,
-                        }}
-                      >
-                        <span
-                          className="size-1 rounded-full"
-                          style={{
-                            display: "inline-block",
-                            width: 10,
-                            height: 10,
-                            backgroundColor: `rgb(${color})`,
-                          }}
-                        />
-                        <span
-                          className={cn(
-                            item.data?.zones_friendly_names?.[zidx] === zone &&
-                              "smart-capitalize",
-                          )}
-                        >
-                          {item.data?.zones_friendly_names?.[zidx]}
-                        </span>
-                      </Badge>
-                    );
-                  })}
+                  <span className="font-medium text-primary">{score}</span>
                 </div>
-              )}
-            </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary-variant">
+                    {t("trackingDetails.lifecycleItemDesc.header.ratio")}
+                  </span>
+                  <span className="font-medium text-primary">{ratio}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary-variant">
+                    {t("trackingDetails.lifecycleItemDesc.header.area")}{" "}
+                    {attributeAreaPx !== undefined &&
+                      attributeAreaPct !== undefined && (
+                        <span className="text-primary-variant">
+                          ({getTranslatedLabel(item.data.label)})
+                        </span>
+                      )}
+                  </span>
+                  {areaPx !== undefined && areaPct !== undefined ? (
+                    <span className="font-medium text-primary">
+                      {t("information.pixels", { ns: "common", area: areaPx })}{" "}
+                      · {areaPct}%
+                    </span>
+                  ) : (
+                    <span>N/A</span>
+                  )}
+                </div>
+                {attributeAreaPx !== undefined &&
+                  attributeAreaPct !== undefined && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-primary-variant">
+                        {t("trackingDetails.lifecycleItemDesc.header.area")} (
+                        {getTranslatedLabel(item.data.attribute)})
+                      </span>
+                      <span className="font-medium text-primary">
+                        {t("information.pixels", {
+                          ns: "common",
+                          area: attributeAreaPx,
+                        })}{" "}
+                        · {attributeAreaPct}%
+                      </span>
+                    </div>
+                  )}
+              </div>
+            )}
+
+            {item.data?.zones && item.data.zones.length > 0 && (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {item.data.zones.map((zone, zidx) => {
+                  const color = getZoneColor(zone)?.join(",") ?? "0,0,0";
+                  return (
+                    <Badge
+                      key={`${zone}-${zidx}`}
+                      variant="outline"
+                      className="inline-flex cursor-pointer items-center gap-2"
+                      onClick={(e: React.MouseEvent) => {
+                        e.stopPropagation();
+                        setSelectedZone(zone);
+                      }}
+                      style={{
+                        borderColor: `rgba(${color}, 0.6)`,
+                        background: `rgba(${color}, 0.08)`,
+                      }}
+                    >
+                      <span
+                        className="size-1 rounded-full"
+                        style={{
+                          display: "inline-block",
+                          width: 10,
+                          height: 10,
+                          backgroundColor: `rgb(${color})`,
+                        }}
+                      />
+                      <span
+                        className={cn(
+                          item.data?.zones_friendly_names?.[zidx] === zone &&
+                            "smart-capitalize",
+                        )}
+                      >
+                        {item.data?.zones_friendly_names?.[zidx]}
+                      </span>
+                    </Badge>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
         <div className="ml-3 flex-shrink-0 px-1 text-right text-xs text-primary-variant">

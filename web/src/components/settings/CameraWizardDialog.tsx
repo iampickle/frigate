@@ -31,7 +31,8 @@ type WizardState = {
 type WizardAction =
   | { type: "UPDATE_DATA"; payload: Partial<WizardFormData> }
   | { type: "UPDATE_AND_NEXT"; payload: Partial<WizardFormData> }
-  | { type: "RESET_NAVIGATE" };
+  | { type: "RESET_NAVIGATE" }
+  | { type: "RESET_ALL" };
 
 const wizardReducer = (
   state: WizardState,
@@ -50,6 +51,11 @@ const wizardReducer = (
       };
     case "RESET_NAVIGATE":
       return { ...state, shouldNavigateNext: false };
+    case "RESET_ALL":
+      return {
+        wizardData: { streams: [] },
+        shouldNavigateNext: false,
+      };
     default:
       return state;
   }
@@ -84,13 +90,13 @@ export default function CameraWizardDialog({
   useEffect(() => {
     if (open) {
       setCurrentStep(0);
-      dispatch({ type: "UPDATE_DATA", payload: { streams: [] } });
+      dispatch({ type: "RESET_ALL" });
     }
   }, [open]);
 
   const handleClose = useCallback(() => {
     setCurrentStep(0);
-    dispatch({ type: "UPDATE_DATA", payload: { streams: [] } });
+    dispatch({ type: "RESET_ALL" });
     onClose();
   }, [onClose]);
 
@@ -237,7 +243,18 @@ export default function CameraWizardDialog({
                 const streamUrl = stream.useFfmpeg
                   ? `ffmpeg:${stream.url}`
                   : stream.url;
-                go2rtcStreams[streamName] = [streamUrl];
+
+                if (wizardData.hasBackchannel ?? false) {
+                  // Add two streams: one with #backchannel=0 and one without
+                  // in order to avoid taking control of the microphone during connections
+                  go2rtcStreams[streamName] = [
+                    `${streamUrl}#backchannel=0`,
+                    streamUrl,
+                  ];
+                } else {
+                  // Add single stream as normal
+                  go2rtcStreams[streamName] = [streamUrl];
+                }
               });
 
               if (Object.keys(go2rtcStreams).length > 0) {

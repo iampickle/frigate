@@ -37,6 +37,7 @@ from frigate.api.defs.query.regenerate_query_parameters import (
     RegenerateQueryParameters,
 )
 from frigate.api.defs.request.events_body import (
+    EventsAttributesBody,
     EventsCreateBody,
     EventsDeleteBody,
     EventsDescriptionBody,
@@ -55,6 +56,7 @@ from frigate.api.defs.response.event_response import (
 from frigate.api.defs.response.generic_response import GenericResponse
 from frigate.api.defs.tags import Tags
 from frigate.comms.event_metadata_updater import EventMetadataTypeEnum
+from frigate.config.classification import ObjectClassificationType
 from frigate.const import CLIPS_DIR, TRIGGER_DIR
 from frigate.embeddings import EmbeddingsContext
 from frigate.models import Event, ReviewSegment, Timeline, Trigger
@@ -98,6 +100,8 @@ def events(
     # handle old sub_label arg
     if sub_labels == "all" and sub_label != "all":
         sub_labels = sub_label
+
+    attributes = unquote(params.attributes)
 
     zone = params.zone
     zones = params.zones
@@ -186,6 +190,17 @@ def events(
 
         sub_label_clause = reduce(operator.or_, sub_label_clauses)
         clauses.append((sub_label_clause))
+
+    if attributes != "all":
+        # Custom classification results are stored as data[model_name] = result_value
+        filtered_attributes = attributes.split(",")
+        attribute_clauses = []
+
+        for attr in filtered_attributes:
+            attribute_clauses.append(Event.data.cast("text") % f'*:"{attr}"*')
+
+        attribute_clause = reduce(operator.or_, attribute_clauses)
+        clauses.append(attribute_clause)
 
     if recognized_license_plate != "all":
         filtered_recognized_license_plates = recognized_license_plate.split(",")
@@ -346,7 +361,7 @@ def events(
     "/events/explore",
     response_model=list[EventResponse],
     dependencies=[Depends(allow_any_authenticated())],
-    summary="Get summary of objects.",
+    summary="Get summary of objects",
     description="""Gets a summary of objects from the database.
     Returns a list of objects with a max of `limit` objects for each label.
     """,
@@ -439,7 +454,7 @@ def events_explore(
     "/event_ids",
     response_model=list[EventResponse],
     dependencies=[Depends(allow_any_authenticated())],
-    summary="Get events by ids.",
+    summary="Get events by ids",
     description="""Gets events by a list of ids.
     Returns a list of events.
     """,
@@ -473,7 +488,7 @@ async def event_ids(ids: str, request: Request):
 @router.get(
     "/events/search",
     dependencies=[Depends(allow_any_authenticated())],
-    summary="Search events.",
+    summary="Search events",
     description="""Searches for events in the database.
     Returns a list of events.
     """,
@@ -492,6 +507,8 @@ def events_search(
     # Filters
     cameras = params.cameras
     labels = params.labels
+    sub_labels = params.sub_labels
+    attributes = params.attributes
     zones = params.zones
     after = params.after
     before = params.before
@@ -565,6 +582,38 @@ def events_search(
 
     if labels != "all":
         event_filters.append((Event.label << labels.split(",")))
+
+    if sub_labels != "all":
+        # use matching so joined sub labels are included
+        # for example a sub label 'bob' would get events
+        # with sub labels 'bob' and 'bob, john'
+        sub_label_clauses = []
+        filtered_sub_labels = sub_labels.split(",")
+
+        if "None" in filtered_sub_labels:
+            filtered_sub_labels.remove("None")
+            sub_label_clauses.append((Event.sub_label.is_null()))
+
+        for label in filtered_sub_labels:
+            sub_label_clauses.append(
+                (Event.sub_label.cast("text") == label)
+            )  # include exact matches
+
+            # include this label when part of a list
+            sub_label_clauses.append((Event.sub_label.cast("text") % f"*{label},*"))
+            sub_label_clauses.append((Event.sub_label.cast("text") % f"*, {label}*"))
+
+        event_filters.append((reduce(operator.or_, sub_label_clauses)))
+
+    if attributes != "all":
+        # Custom classification results are stored as data[model_name] = result_value
+        filtered_attributes = attributes.split(",")
+        attribute_clauses = []
+
+        for attr in filtered_attributes:
+            attribute_clauses.append(Event.data.cast("text") % f'*:"{attr}"*')
+
+        event_filters.append(reduce(operator.or_, attribute_clauses))
 
     if zones != "all":
         zone_clauses = []
@@ -924,7 +973,7 @@ def events_summary(
     "/events/{event_id}",
     response_model=EventResponse,
     dependencies=[Depends(allow_any_authenticated())],
-    summary="Get event by id.",
+    summary="Get event by id",
     description="Gets an event by its id.",
 )
 async def event(event_id: str, request: Request):
@@ -968,7 +1017,7 @@ def set_retain(event_id: str):
     "/events/{event_id}/plus",
     response_model=EventUploadPlusResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Send event to Frigate+.",
+    summary="Send event to Frigate+",
     description="""Sends an event to Frigate+.
     Returns a success message or an error if the event is not found.
     """,
@@ -1207,7 +1256,7 @@ async def false_positive(request: Request, event_id: str):
     "/events/{event_id}/retain",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Stop event from being retained indefinitely.",
+    summary="Stop event from being retained indefinitely",
     description="""Stops an event from being retained indefinitely.
     Returns a success message or an error if the event is not found.
     NOTE: This is a legacy endpoint and is not supported in the frontend.
@@ -1236,7 +1285,7 @@ async def delete_retain(event_id: str, request: Request):
     "/events/{event_id}/sub_label",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Set event sub label.",
+    summary="Set event sub label",
     description="""Sets an event's sub label.
     Returns a success message or an error if the event is not found.
     """,
@@ -1295,7 +1344,7 @@ async def set_sub_label(
     "/events/{event_id}/recognized_license_plate",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Set event license plate.",
+    summary="Set event license plate",
     description="""Sets an event's license plate.
     Returns a success message or an error if the event is not found.
     """,
@@ -1352,10 +1401,111 @@ async def set_plate(
 
 
 @router.post(
+    "/events/{event_id}/attributes",
+    response_model=GenericResponse,
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Set custom classification attributes",
+    description=(
+        "Sets an event's custom classification attributes for all attribute-type "
+        "models that apply to the event's object type."
+    ),
+)
+async def set_attributes(
+    request: Request,
+    event_id: str,
+    body: EventsAttributesBody,
+):
+    try:
+        event: Event = Event.get(Event.id == event_id)
+        await require_camera_access(event.camera, request=request)
+    except DoesNotExist:
+        return JSONResponse(
+            content=({"success": False, "message": f"Event {event_id} not found."}),
+            status_code=404,
+        )
+
+    object_type = event.label
+    selected_attributes = set(body.attributes or [])
+    applied_updates: list[dict[str, str | float | None]] = []
+
+    for (
+        model_key,
+        model_config,
+    ) in request.app.frigate_config.classification.custom.items():
+        # Only apply to enabled attribute classifiers that target this object type
+        if (
+            not model_config.enabled
+            or not model_config.object_config
+            or model_config.object_config.classification_type
+            != ObjectClassificationType.attribute
+            or object_type not in (model_config.object_config.objects or [])
+        ):
+            continue
+
+        # Get available labels from dataset directory
+        dataset_dir = os.path.join(CLIPS_DIR, sanitize_filename(model_key), "dataset")
+        available_labels = set()
+
+        if os.path.exists(dataset_dir):
+            for category_name in os.listdir(dataset_dir):
+                category_dir = os.path.join(dataset_dir, category_name)
+                if os.path.isdir(category_dir):
+                    available_labels.add(category_name)
+
+        if not available_labels:
+            logger.warning(
+                "No dataset found for custom attribute model %s at %s",
+                model_key,
+                dataset_dir,
+            )
+            continue
+
+        # Find all selected attributes that apply to this model
+        model_name = model_config.name or model_key
+        matching_attrs = selected_attributes & available_labels
+
+        if matching_attrs:
+            # Publish updates for each selected attribute
+            for attr in matching_attrs:
+                request.app.event_metadata_updater.publish(
+                    (event_id, model_name, attr, 1.0),
+                    EventMetadataTypeEnum.attribute.value,
+                )
+                applied_updates.append(
+                    {"model": model_name, "label": attr, "score": 1.0}
+                )
+        else:
+            # Clear this model's attribute
+            request.app.event_metadata_updater.publish(
+                (event_id, model_name, None, None),
+                EventMetadataTypeEnum.attribute.value,
+            )
+            applied_updates.append({"model": model_name, "label": None, "score": None})
+
+    if len(applied_updates) == 0:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "No matching attributes found for this object type.",
+            },
+            status_code=400,
+        )
+
+    return JSONResponse(
+        content={
+            "success": True,
+            "message": f"Updated {len(applied_updates)} attribute(s)",
+            "applied": applied_updates,
+        },
+        status_code=200,
+    )
+
+
+@router.post(
     "/events/{event_id}/description",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Set event description.",
+    summary="Set event description",
     description="""Sets an event's description.
     Returns a success message or an error if the event is not found.
     """,
@@ -1411,7 +1561,7 @@ async def set_description(
     "/events/{event_id}/description/regenerate",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Regenerate event description.",
+    summary="Regenerate event description",
     description="""Regenerates an event's description.
     Returns a success message or an error if the event is not found.
     """,
@@ -1463,8 +1613,8 @@ async def regenerate_description(
 @router.post(
     "/description/generate",
     response_model=GenericResponse,
-    # dependencies=[Depends(require_role(["admin"]))],
-    summary="Generate description embedding.",
+    dependencies=[Depends(require_role(["admin"]))],
+    summary="Generate description embedding",
     description="""Generates an embedding for an event's description.
     Returns a success message or an error if the event is not found.
     """,
@@ -1529,7 +1679,7 @@ async def delete_single_event(event_id: str, request: Request) -> dict:
     "/events/{event_id}",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Delete event.",
+    summary="Delete event",
     description="""Deletes an event from the database.
     Returns a success message or an error if the event is not found.
     """,
@@ -1544,7 +1694,7 @@ async def delete_event(request: Request, event_id: str):
     "/events/",
     response_model=EventMultiDeleteResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Delete events.",
+    summary="Delete events",
     description="""Deletes a list of events from the database.
     Returns a success message or an error if the events are not found.
     """,
@@ -1578,7 +1728,7 @@ async def delete_events(request: Request, body: EventsDeleteBody):
     "/events/{camera_name}/{label}/create",
     response_model=EventCreateResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Create manual event.",
+    summary="Create manual event",
     description="""Creates a manual event in the database.
     Returns a success message or an error if the event is not found.
     NOTES:
@@ -1620,7 +1770,7 @@ def create_event(
             body.score,
             body.sub_label,
             body.duration,
-            body.source_type,
+            "api",
             body.draw,
         ),
         EventMetadataTypeEnum.manual_event_create.value,
@@ -1642,7 +1792,7 @@ def create_event(
     "/events/{event_id}/end",
     response_model=GenericResponse,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="End manual event.",
+    summary="End manual event",
     description="""Ends a manual event.
     Returns a success message or an error if the event is not found.
     NOTE: This should only be used for manual events.
@@ -1652,9 +1802,26 @@ async def end_event(request: Request, event_id: str, body: EventsEndBody):
     try:
         event: Event = Event.get(Event.id == event_id)
         await require_camera_access(event.camera, request=request)
+
+        if body.end_time is not None and body.end_time < event.start_time:
+            return JSONResponse(
+                content=(
+                    {
+                        "success": False,
+                        "message": f"end_time ({body.end_time}) cannot be before start_time ({event.start_time}).",
+                    }
+                ),
+                status_code=400,
+            )
+
         end_time = body.end_time or datetime.datetime.now().timestamp()
         request.app.event_metadata_updater.publish(
             (event_id, end_time), EventMetadataTypeEnum.manual_event_end.value
+        )
+    except DoesNotExist:
+        return JSONResponse(
+            content=({"success": False, "message": f"Event {event_id} not found."}),
+            status_code=404,
         )
     except Exception:
         return JSONResponse(
@@ -1674,7 +1841,7 @@ async def end_event(request: Request, event_id: str, body: EventsEndBody):
     "/trigger/embedding",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Create trigger embedding.",
+    summary="Create trigger embedding",
     description="""Creates a trigger embedding for a specific trigger.
     Returns a success message or an error if the trigger is not found.
     """,
@@ -1731,37 +1898,40 @@ def create_trigger_embedding(
             if event.data.get("type") != "object":
                 return
 
-            if thumbnail := get_event_thumbnail_bytes(event):
-                cursor = context.db.execute_sql(
-                    """
-                    SELECT thumbnail_embedding FROM vec_thumbnails WHERE id = ?
-                    """,
-                    [body.data],
+            # Get the thumbnail
+            thumbnail = get_event_thumbnail_bytes(event)
+
+            if thumbnail is None:
+                return JSONResponse(
+                    content={
+                        "success": False,
+                        "message": f"Failed to get thumbnail for {body.data} for {body.type} trigger",
+                    },
+                    status_code=400,
                 )
 
-                row = cursor.fetchone() if cursor else None
+            # Try to reuse existing embedding from database
+            cursor = context.db.execute_sql(
+                """
+                SELECT thumbnail_embedding FROM vec_thumbnails WHERE id = ?
+                """,
+                [body.data],
+            )
 
-                if row:
-                    query_embedding = row[0]
-                    embedding = np.frombuffer(query_embedding, dtype=np.float32)
+            row = cursor.fetchone() if cursor else None
+
+            if row:
+                query_embedding = row[0]
+                embedding = np.frombuffer(query_embedding, dtype=np.float32)
             else:
-                # Extract valid thumbnail
-                thumbnail = get_event_thumbnail_bytes(event)
-
-                if thumbnail is None:
-                    return JSONResponse(
-                        content={
-                            "success": False,
-                            "message": f"Failed to get thumbnail for {body.data} for {body.type} trigger",
-                        },
-                        status_code=400,
-                    )
-
+                # Generate new embedding
                 embedding = context.generate_image_embedding(
                     body.data, (base64.b64encode(thumbnail).decode("ASCII"))
                 )
 
-        if not embedding:
+        if embedding is None or (
+            isinstance(embedding, (list, np.ndarray)) and len(embedding) == 0
+        ):
             return JSONResponse(
                 content={
                     "success": False,
@@ -1829,7 +1999,7 @@ def create_trigger_embedding(
     "/trigger/embedding/{camera_name}/{name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Update trigger embedding.",
+    summary="Update trigger embedding",
     description="""Updates a trigger embedding for a specific trigger.
     Returns a success message or an error if the trigger is not found.
     """,
@@ -1896,7 +2066,9 @@ def update_trigger_embedding(
                 body.data, (base64.b64encode(thumbnail).decode("ASCII"))
             )
 
-        if not embedding:
+        if embedding is None or (
+            isinstance(embedding, (list, np.ndarray)) and len(embedding) == 0
+        ):
             return JSONResponse(
                 content={
                     "success": False,
@@ -1992,7 +2164,7 @@ def update_trigger_embedding(
     "/trigger/embedding/{camera_name}/{name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Delete trigger embedding.",
+    summary="Delete trigger embedding",
     description="""Deletes a trigger embedding for a specific trigger.
     Returns a success message or an error if the trigger is not found.
     """,
@@ -2066,7 +2238,7 @@ def delete_trigger_embedding(
     "/triggers/status/{camera_name}",
     response_model=dict,
     dependencies=[Depends(require_role(["admin"]))],
-    summary="Get triggers status.",
+    summary="Get triggers status",
     description="""Gets the status of all triggers for a specific camera.
     Returns a success message or an error if the camera is not found.
     """,

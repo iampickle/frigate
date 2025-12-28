@@ -83,7 +83,7 @@
     }
   },
   "review": {
-    "showReviewed": "Afficher les éléments vérifiés"
+    "showReviewed": "Afficher les activités traitées"
   },
   "cameras": {
     "label": "Filtre des caméras",
@@ -133,5 +133,9 @@
     },
     "count_one": "{{count}} classe",
     "count_other": "{{count}} classes"
+  },
+  "attributes": {
+    "label": "Attributs de classification",
+    "all": "Tous les attributs"
   }
 }

@@ -52,7 +52,10 @@
       "label": "Arka planda oynat",
       "tips": "Yayını oynatıcı arkadayken de devam ettirmek için bu seçeneği açın."
     },
-    "title": "Yayın"
+    "title": "Yayın",
+    "debug": {
+      "picker": "Hata ayıklama modunda akış seçimi kullanılamaz. Hata ayıklama görünümü her zaman tespit(detect) rolüne atanmış akışı kullanır."
+    }
   },
   "cameraSettings": {
     "recording": "Kayıt",
@@ -169,9 +172,18 @@
     "disable": "Canlı Ses Çözümlemeyi Kapat"
   },
   "snapshot": {
-    "takeSnapshot": "Anlık Ekran Görüntüsünü İndir",
+    "takeSnapshot": "Anlık görüntüyü indir",
     "noVideoSource": "Anlık görüntü için kullanılabilir bir video kaynağı bulunamadı.",
     "captureFailed": "Anlık görüntü yakalanamadı.",
     "downloadStarted": "Anlık görüntü indirme işlemi başlatıldı."
+  },
+  "noCameras": {
+    "title": "Yapılandırılmış Kamera Yok",
+    "description": "Frigate’e bir kamera bağlayarak başlayın.",
+    "buttonText": "Kamera Ekle",
+    "restricted": {
+      "title": "Kullanılabilir Kamera Yok",
+      "description": "Bu gruptaki kameraları görüntüleme izniniz yok."
+    }
   }
 }

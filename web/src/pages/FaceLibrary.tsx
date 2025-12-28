@@ -52,7 +52,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { isDesktop } from "react-device-detect";
+import { isDesktop, isMobileOnly } from "react-device-detect";
 import { Trans, useTranslation } from "react-i18next";
 import {
   LuFolderCheck,
@@ -68,7 +68,10 @@ import {
   ClassificationCard,
   GroupedClassificationCard,
 } from "@/components/card/ClassificationCard";
-import { ClassificationItemData } from "@/types/classification";
+import {
+  ClassificationItemData,
+  ClassifiedEvent,
+} from "@/types/classification";
 
 export default function FaceLibrary() {
   const { t } = useTranslation(["views/faceLibrary"]);
@@ -370,8 +373,13 @@ export default function FaceLibrary() {
         />
         {selectedFaces?.length > 0 ? (
           <div className="flex items-center justify-center gap-2">
-            <div className="mx-1 flex w-48 items-center justify-center text-sm text-muted-foreground">
-              <div className="p-1">{`${selectedFaces.length} selected`}</div>
+            <div className="mx-1 flex w-auto items-center justify-center text-sm text-muted-foreground">
+              <div className="p-1">
+                {t("selected", {
+                  ns: "views/events",
+                  count: selectedFaces.length,
+                })}
+              </div>
               <div className="p-1">{"|"}</div>
               <div
                 className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
@@ -379,6 +387,24 @@ export default function FaceLibrary() {
               >
                 {t("button.unselect", { ns: "common" })}
               </div>
+              {selectedFaces.length <
+                (pageToggle === "train"
+                  ? trainImages.length
+                  : faceImages.length) && (
+                <>
+                  <div className="p-1">{"|"}</div>
+                  <div
+                    className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
+                    onClick={() =>
+                      setSelectedFaces([
+                        ...(pageToggle === "train" ? trainImages : faceImages),
+                      ])
+                    }
+                  >
+                    {t("select_all", { ns: "views/events" })}
+                  </div>
+                </>
+              )}
             </div>
             <Button
               className="flex gap-2"
@@ -477,6 +503,18 @@ function LibrarySelector({
     [renameFace],
   );
 
+  const pageTitle = useMemo(() => {
+    if (pageToggle != "train") {
+      return pageToggle;
+    }
+
+    if (isMobileOnly) {
+      return t("train.titleShort");
+    }
+
+    return t("train.title");
+  }, [pageToggle, t]);
+
   return (
     <>
       <Dialog
@@ -527,7 +565,7 @@ function LibrarySelector({
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button className="flex justify-between smart-capitalize">
-            {pageToggle == "train" ? t("train.title") : pageToggle}
+            {pageTitle}
             <span className="ml-2 text-primary-variant">
               ({(pageToggle && faceData?.[pageToggle]?.length) || 0})
             </span>
@@ -887,10 +925,22 @@ function FaceAttemptGroup({
     [onRefresh, t],
   );
 
+  // Create ClassifiedEvent from Event (face recognition uses sub_label)
+  const classifiedEvent: ClassifiedEvent | undefined = useMemo(() => {
+    if (!event || !event.sub_label || event.sub_label === "none") {
+      return undefined;
+    }
+    return {
+      id: event.id,
+      label: event.sub_label,
+      score: event.data?.sub_label_score,
+    };
+  }, [event]);
+
   return (
     <GroupedClassificationCard
       group={group}
-      event={event}
+      classifiedEvent={classifiedEvent}
       threshold={threshold}
       selectedItems={selectedFaces}
       i18nLibrary="views/faceLibrary"
@@ -976,6 +1026,7 @@ function FaceGrid({
               filepath: `clips/faces/${pageToggle}/${image}`,
             }}
             selected={selectedFaces.includes(image)}
+            clickable={selectedFaces.length > 0}
             i18nLibrary="views/faceLibrary"
             onClick={(data, meta) => onClickFaces([data.filename], meta)}
           >

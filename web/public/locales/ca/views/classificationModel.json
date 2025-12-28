@@ -1,5 +1,5 @@
 {
-  "documentTitle": "Models de classificació",
+  "documentTitle": "Models de classificació - Frigate",
   "button": {
     "deleteClassificationAttempts": "Suprimeix les imatges de classificació",
     "renameCategory": "Reanomena la classe",
@@ -54,7 +54,7 @@
   },
   "renameCategory": {
     "title": "Reanomena la classe",
-    "desc": "Introduïu un nom nou per {{name}}. Se us requerirà que torneu a entrenar el model per al canvi de nom a afectar."
+    "desc": "Introduïu un nom nou per {{name}}. Se us requerirà que torneu a entrenar el model per al canvi de nom afectar."
   },
   "description": {
     "invalidName": "Nom no vàlid. Els noms només poden incloure lletres, números, espais, apòstrofs, guions baixos i guions."
@@ -116,7 +116,8 @@
         "classesUnique": "Els noms de classe han de ser únics",
         "stateRequiresTwoClasses": "Els models d'estat requereixen almenys 2 classes",
         "objectLabelRequired": "Seleccioneu una etiqueta d'objecte",
-        "objectTypeRequired": "Seleccioneu un tipus de classificació"
+        "objectTypeRequired": "Seleccioneu un tipus de classificació",
+        "noneNotAllowed": "La classe 'none' no està permesa"
       },
       "states": "Estats"
     },
@@ -152,7 +153,12 @@
       "generateSuccess": "Imatges de mostra generades amb èxit",
       "allImagesRequired_one": "Classifiqueu totes les imatges. Queda {{count}} imatge.",
       "allImagesRequired_many": "Classifiqueu totes les imatges. Queden {{count}} imatges.",
-      "allImagesRequired_other": "Classifiqueu totes les imatges. Queden {{count}} imatges."
+      "allImagesRequired_other": "Classifiqueu totes les imatges. Queden {{count}} imatges.",
+      "modelCreated": "El model s'ha creat correctament. Utilitzeu la vista Classificacions recents per a afegir imatges per als estats que falten i, a continuació, entrenar el model.",
+      "missingStatesWarning": {
+        "title": "Falten exemples d'estat",
+        "description": "Es recomana seleccionar exemples per a tots els estats per obtenir els millors resultats. Podeu continuar sense seleccionar tots els estats, però el model no serà entrenat fins que tots els estats tinguin imatges. Després de continuar, utilitzeu la vista Classificacions recents per classificar imatges per als estats que falten, i després entrenar el model."
+      }
     }
   },
   "deleteModel": {
@@ -167,7 +173,9 @@
     "states": "Estats"
   },
   "details": {
-    "scoreInfo": "La puntuació representa la confiança mitjana de la classificació en totes les deteccions d'aquest objecte."
+    "scoreInfo": "La puntuació representa la confiança mitjana de la classificació en totes les deteccions d'aquest objecte.",
+    "none": "Cap",
+    "unknown": "Desconegut"
   },
   "edit": {
     "title": "Edita el model de classificació",
@@ -180,5 +188,6 @@
     "noNewImages": "Sense noves imatges per entrenar. Classifica més imatges primer.",
     "modelNotReady": "El model no está preparat per entrenar",
     "noChanges": "No hi ha canvis al conjunt de dades des de l'última formació."
-  }
+  },
+  "none": "Cap"
 }

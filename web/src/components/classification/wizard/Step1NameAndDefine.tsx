@@ -94,7 +94,14 @@ export default function Step1NameAndDefine({
       objectLabel: z.string().optional(),
       objectType: z.enum(["sub_label", "attribute"]).optional(),
       classes: z
-        .array(z.string())
+        .array(
+          z
+            .string()
+            .refine(
+              (val) => val.trim().toLowerCase() !== "none",
+              t("wizard.step1.errors.noneNotAllowed"),
+            ),
+        )
         .min(1, t("wizard.step1.errors.classRequired"))
         .refine(
           (classes) => {
@@ -315,7 +322,7 @@ export default function Step1NameAndDefine({
                       <FormLabel className="text-primary-variant">
                         {t("wizard.step1.classificationType")}
                       </FormLabel>
-                      <Popover>
+                      <Popover modal={true}>
                         <PopoverTrigger asChild>
                           <Button
                             variant="ghost"
@@ -398,7 +405,7 @@ export default function Step1NameAndDefine({
                     ? t("wizard.step1.states")
                     : t("wizard.step1.classes")}
                 </FormLabel>
-                <Popover>
+                <Popover modal={true}>
                   <PopoverTrigger asChild>
                     <Button variant="ghost" size="sm" className="h-4 w-4 p-0">
                       <LuInfo className="size-3" />
@@ -467,6 +474,7 @@ export default function Step1NameAndDefine({
                           )}
                         </div>
                       </FormControl>
+                      <FormMessage />
                     </FormItem>
                   )}
                 />
