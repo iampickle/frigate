@@ -62,6 +62,7 @@ import useApiFilter from "@/hooks/use-api-filter";
 import {
   ClassificationDatasetResponse,
   ClassificationItemData,
+  ClassifiedEvent,
   TrainFilter,
 } from "@/types/classification";
 import {
@@ -83,6 +84,12 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
   const navigate = useNavigate();
   const [page, setPage] = useState<string>("train");
   const [pageToggle, setPageToggle] = useOptimisticState(page, setPage, 100);
+
+  // title
+
+  useEffect(() => {
+    document.title = `${model.name} - ${t("documentTitle")}`;
+  }, [model.name, t]);
 
   // model state
 
@@ -415,8 +422,13 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
               isMobileOnly && "justify-between",
             )}
           >
-            <div className="flex w-48 items-center justify-center text-sm text-muted-foreground">
-              <div className="p-1">{`${selectedImages.length} selected`}</div>
+            <div className="flex w-auto items-center justify-center text-sm text-muted-foreground md:w-auto">
+              <div className="p-1">
+                {t("selected", {
+                  ns: "views/events",
+                  count: selectedImages.length,
+                })}
+              </div>
               <div className="p-1">{"|"}</div>
               <div
                 className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
@@ -424,6 +436,26 @@ export default function ModelTrainingView({ model }: ModelTrainingViewProps) {
               >
                 {t("button.unselect", { ns: "common" })}
               </div>
+              {selectedImages.length <
+                (pageToggle === "train"
+                  ? trainImages?.length || 0
+                  : dataset?.[pageToggle]?.length || 0) && (
+                <>
+                  <div className="p-1">{"|"}</div>
+                  <div
+                    className="cursor-pointer p-2 text-primary hover:rounded-lg hover:bg-secondary"
+                    onClick={() =>
+                      setSelectedImages([
+                        ...(pageToggle === "train"
+                          ? trainImages || []
+                          : dataset?.[pageToggle] || []),
+                      ])
+                    }
+                  >
+                    {t("select_all", { ns: "views/events" })}
+                  </div>
+                </>
+              )}
             </div>
             <Button
               className="flex gap-2"
@@ -676,7 +708,7 @@ function LibrarySelector({
                 className="flex-grow cursor-pointer capitalize"
                 onClick={() => setPageToggle(id)}
               >
-                {id.replaceAll("_", " ")}
+                {id === "none" ? t("details.none") : id.replaceAll("_", " ")}
                 <span className="ml-2 text-muted-foreground">
                   ({dataset?.[id].length})
                 </span>
@@ -772,6 +804,7 @@ function DatasetGrid({
               name: "",
             }}
             showArea={false}
+            clickable={selectedImages.length > 0}
             selected={selectedImages.includes(image)}
             i18nLibrary="views/classificationModel"
             onClick={(data, _) => onClickImages([data.filename], true)}
@@ -835,6 +868,12 @@ function TrainGrid({
           };
         })
         .filter((data) => {
+          // Ignore images that don't match the expected format (event-camera-timestamp-state-score.webp)
+          // Expected format has 5 parts when split by "-", and score should be a valid number
+          if (data.score === undefined || isNaN(data.score) || !data.name) {
+            return false;
+          }
+
           if (!trainFilter) {
             return true;
           }
@@ -924,6 +963,7 @@ function StateTrainGrid({
             data={data}
             threshold={threshold}
             selected={selectedImages.includes(data.filename)}
+            clickable={selectedImages.length > 0}
             i18nLibrary="views/classificationModel"
             showArea={false}
             onClick={(data, meta) => onClickImages([data.filename], meta)}
@@ -996,6 +1036,45 @@ function ObjectTrainGrid({
     };
   }, [model]);
 
+  // Helper function to create ClassifiedEvent from Event
+  const createClassifiedEvent = useCallback(
+    (event: Event | undefined): ClassifiedEvent | undefined => {
+      if (!event || !model.object_config) {
+        return undefined;
+      }
+
+      const classificationType = model.object_config.classification_type;
+
+      if (classificationType === "attribute") {
+        // For attribute type, look at event.data[model.name]
+        const attributeValue = event.data[model.name] as string | undefined;
+        const attributeScore = event.data[`${model.name}_score`] as
+          | number
+          | undefined;
+
+        if (attributeValue && attributeValue !== "none") {
+          return {
+            id: event.id,
+            label: attributeValue,
+            score: attributeScore,
+          };
+        }
+      } else {
+        // For sub_label type, use event.sub_label
+        if (event.sub_label && event.sub_label !== "none") {
+          return {
+            id: event.id,
+            label: event.sub_label,
+            score: event.data?.sub_label_score,
+          };
+        }
+      }
+
+      return undefined;
+    },
+    [model],
+  );
+
   // selection
 
   const [selectedEvent, setSelectedEvent] = useState<Event>();
@@ -1058,11 +1137,13 @@ function ObjectTrainGrid({
       >
         {Object.entries(groups).map(([key, group]) => {
           const event = events?.find((ev) => ev.id == key);
+          const classifiedEvent = createClassifiedEvent(event);
+
           return (
             <div key={key} className="aspect-square w-full">
               <GroupedClassificationCard
                 group={group}
-                event={event}
+                classifiedEvent={classifiedEvent}
                 threshold={threshold}
                 selectedItems={selectedImages}
                 i18nLibrary="views/classificationModel"

@@ -258,7 +258,7 @@
       "name": {
         "inputPlaceHolder": "Introdu un nume…",
         "title": "Nume",
-        "tips": "Numele trebuie să aibă cel puțin 2 caractere, trebuie să conțină cel puțin o literă și nu trebuie să fie identic cu numele unei camere sau al unei alte zone existente."
+        "tips": "Numele trebuie să aibă cel puțin 2 caractere, să conțină cel puțin o literă și să nu fie numele unei camere sau al unei alte zone din această cameră."
       },
       "inertia": {
         "title": "Inerție",
@@ -277,7 +277,7 @@
       "documentTitle": "Editează zone - Frigate",
       "clickDrawPolygon": "Apasă pentru a desena un poligon pe imagine.",
       "toast": {
-        "success": "Zona ({{zoneName}}) a fost salvată. Repornește Frigate pentru a aplica modificările."
+        "success": "Zona ({{zoneName}}) a fost salvată."
       },
       "label": "Zone",
       "objects": {
@@ -305,8 +305,8 @@
       },
       "toast": {
         "success": {
-          "title": "{{polygonName}} a fost salvat. Repornește Frigate pentru a aplica modificările.",
-          "noName": "Masca de mișcare a fost salvată.Repornește Frigate pentru a aplica modificările."
+          "title": "{{polygonName}} a fost salvat.",
+          "noName": "Masca de mișcare a fost salvată."
         }
       },
       "polygonAreaTooLarge": {
@@ -334,8 +334,8 @@
       },
       "toast": {
         "success": {
-          "noName": "Masca de obiecte a fost salvată. Repornește Frigate pentru a aplica modificările.",
-          "title": "{{polygonName}} a fost salvat. Repornește Frigate pentru a aplica modificările."
+          "noName": "Masca de obiecte a fost salvată.",
+          "title": "{{polygonName}} a fost salvat."
         }
       },
       "clickDrawPolygon": "Fă clic pentru a desena un poligon pe imagine.",
@@ -503,7 +503,16 @@
           },
           "title": "Parolă",
           "match": "Parolele se potrivesc",
-          "notMatch": "Parolele nu se potrivesc"
+          "notMatch": "Parolele nu se potrivesc",
+          "show": "Afișează parola",
+          "hide": "Ascunde parola",
+          "requirements": {
+            "title": "Cerințe parolă:",
+            "length": "Cel puțin 8 caracter",
+            "uppercase": "Cel puțin o literă majusculă",
+            "digit": "Cel puțin o cifră",
+            "special": "Cel puțin un caracter special (!@#$%^&*(),.?\":{}|<>)"
+          }
         },
         "passwordIsRequired": "Este nevoie de parolă",
         "user": {
@@ -518,7 +527,11 @@
             "placeholder": "Re-introdu parola nouă"
           }
         },
-        "usernameIsRequired": "Este nevoie de numele de utilizator"
+        "usernameIsRequired": "Este nevoie de numele de utilizator",
+        "currentPassword": {
+          "title": "Parola curentă",
+          "placeholder": "Introduceți parola curentă"
+        }
       },
       "createUser": {
         "confirmPassword": "Te rog să confirmi parola",
@@ -531,7 +544,12 @@
         "doNotMatch": "Parolele nu se potrivesc",
         "updatePassword": "Actualizează parola pentru {{username}}",
         "setPassword": "Schimbă parola",
-        "desc": "Creează o parolă puternică pentru a securiza acest cont."
+        "desc": "Creează o parolă puternică pentru a securiza acest cont.",
+        "currentPasswordRequired": "Parola curentă este obligatorie",
+        "incorrectCurrentPassword": "Parola curentă incorectă",
+        "passwordVerificationFailed": "Nu s-a putut verifica parola",
+        "multiDeviceWarning": "Orice alte dispozitive pe care ești autentificat vor trebui să se autentifice din nou în termen de {{refresh_time}}.",
+        "multiDeviceAdmin": "De asemenea, poți forța toți utilizatorii să se reautentifice imediat prin rotirea secretului tău JWT."
       }
     },
     "addUser": "Adaugă utilizator",
@@ -553,7 +571,7 @@
         "deleteUserFailed": "Ștergerea utilizatorului a eșuat: {{errorMessage}}"
       }
     },
-    "updatePassword": "Actualizează parola",
+    "updatePassword": "Resetează parola",
     "title": "Utilizatori",
     "table": {
       "username": "Nume utilizator",
@@ -562,7 +580,7 @@
       "noUsers": "Nu a fost găsit niciun utilizator.",
       "changeRole": "Schimbă rolul utilizatorului",
       "deleteUser": "Șterge utilizatorul",
-      "password": "Parolă"
+      "password": "Resetează parola"
     }
   },
   "notification": {
@@ -1140,7 +1158,8 @@
         "audioCodecRequired": "Este necesar un stream audio pentru a suporta detecția audio.",
         "restreamingWarning": "Reducerea conexiunilor la cameră pentru stream-ul de înregistrare poate crește ușor utilizarea procesorului (CPU).",
         "brands": {
-          "reolink-rtsp": "RTSP Reolink nu este recomandat. Activați HTTP în setările de firmware ale camerei și reporniți asistentul."
+          "reolink-rtsp": "RTSP Reolink nu este recomandat. Activați HTTP în setările de firmware ale camerei și reporniți asistentul.",
+          "reolink-http": "Stream-urile HTTP Reolink ar trebui să folosească FFmpeg pentru o compatibilitate mai bună. Activează 'Use stream compatibility mode' pentru acest stream."
         },
         "dahua": {
           "substreamWarning": "Substream-ul 1 este blocat la o rezoluție scăzută. Multe camere Dahua / Amcrest / EmpireTech suportă stream-uri secundare suplimentare care trebuie activate în setările camerei. Se recomandă să verificați și să utilizați aceste stream-uri dacă sunt disponibile."

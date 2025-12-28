@@ -77,7 +77,7 @@
         "millisecondsToOffset": "Milliseconds to offset detect annotations by. <em>Default: 0</em>",
         "tips": "Lower the value if the video playback is ahead of the boxes and path points, and increase the value if the video playback is behind them. This value can be negative.",
         "toast": {
-          "success": "Annotation offset for {{camera}} has been saved to the config file. Restart Frigate to apply your changes."
+          "success": "Annotation offset for {{camera}} has been saved to the config file."
         }
       }
     },
@@ -104,12 +104,14 @@
           "regenerate": "A new description has been requested from {{provider}}. Depending on the speed of your provider, the new description may take some time to regenerate.",
           "updatedSublabel": "Successfully updated sub label.",
           "updatedLPR": "Successfully updated license plate.",
+          "updatedAttributes": "Successfully updated attributes.",
           "audioTranscription": "Successfully requested audio transcription. Depending on the speed of your Frigate server, the transcription may take some time to complete."
         },
         "error": {
           "regenerate": "Failed to call {{provider}} for a new description: {{errorMessage}}",
           "updatedSublabelFailed": "Failed to update sub label: {{errorMessage}}",
           "updatedLPRFailed": "Failed to update license plate: {{errorMessage}}",
+          "updatedAttributesFailed": "Failed to update attributes: {{errorMessage}}",
           "audioTranscription": "Failed to request audio transcription: {{errorMessage}}"
         }
       }
@@ -125,6 +127,10 @@
       "desc": "Enter a new license plate value for this {{label}}",
       "descNoLabel": "Enter a new license plate value for this tracked object"
     },
+    "editAttributes": {
+      "title": "Edit attributes",
+      "desc": "Select classification attributes for this {{label}}"
+    },
     "snapshotScore": {
       "label": "Snapshot Score"
     },
@@ -136,6 +142,7 @@
       "label": "Score"
     },
     "recognizedLicensePlate": "Recognized License Plate",
+    "attributes": "Classification Attributes",
     "estimatedSpeed": "Estimated Speed",
     "objects": "Objects",
     "camera": "Camera",
@@ -169,6 +176,10 @@
     "downloadSnapshot": {
       "label": "Download snapshot",
       "aria": "Download snapshot"
+    },
+    "downloadCleanSnapshot": {
+      "label": "Download clean snapshot",
+      "aria": "Download clean snapshot"
     },
     "viewTrackingDetails": {
       "label": "View tracking details",

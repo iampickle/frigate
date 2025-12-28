@@ -19,9 +19,10 @@ from frigate.const import (
     PROCESS_PRIORITY_LOW,
     UPDATE_MODEL_STATE,
 )
-from frigate.log import redirect_output_to_logger
+from frigate.log import redirect_output_to_logger, suppress_stderr_during
 from frigate.models import Event, Recordings, ReviewSegment
 from frigate.types import ModelStatusTypesEnum
+from frigate.util.downloader import ModelDownloader
 from frigate.util.file import get_event_thumbnail_bytes
 from frigate.util.image import get_image_from_recording
 from frigate.util.process import FrigateProcess
@@ -121,6 +122,10 @@ def get_dataset_image_count(model_name: str) -> int:
 
 class ClassificationTrainingProcess(FrigateProcess):
     def __init__(self, model_name: str) -> None:
+        self.BASE_WEIGHT_URL = os.environ.get(
+            "TF_KERAS_MOBILENET_V2_WEIGHTS_URL",
+            "",
+        )
         super().__init__(
             stop_event=None,
             priority=PROCESS_PRIORITY_LOW,
@@ -179,11 +184,23 @@ class ClassificationTrainingProcess(FrigateProcess):
                 )
                 return False
 
+            weights_path = "imagenet"
+            # Download MobileNetV2 weights if not present
+            if self.BASE_WEIGHT_URL:
+                weights_path = os.path.join(
+                    MODEL_CACHE_DIR, "MobileNet", "mobilenet_v2_weights.h5"
+                )
+                if not os.path.exists(weights_path):
+                    logger.info("Downloading MobileNet V2 weights file")
+                    ModelDownloader.download_from_url(
+                        self.BASE_WEIGHT_URL, weights_path
+                    )
+
             # Start with imagenet base model with 35% of channels in each layer
             base_model = MobileNetV2(
                 input_shape=(224, 224, 3),
                 include_top=False,
-                weights="imagenet",
+                weights=weights_path,
                 alpha=0.35,
             )
             base_model.trainable = False  # Freeze pre-trained layers
@@ -233,15 +250,20 @@ class ClassificationTrainingProcess(FrigateProcess):
             logger.debug(f"Converting {self.model_name} to TFLite...")
 
             # convert model to tflite
-            converter = tf.lite.TFLiteConverter.from_keras_model(model)
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-            converter.representative_dataset = (
-                self.__generate_representative_dataset_factory(dataset_dir)
-            )
-            converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-            converter.inference_input_type = tf.uint8
-            converter.inference_output_type = tf.uint8
-            tflite_model = converter.convert()
+            # Suppress stderr during conversion to avoid LLVM debug output
+            # (fully_quantize, inference_type, MLIR optimization messages, etc)
+            with suppress_stderr_during("tflite_conversion"):
+                converter = tf.lite.TFLiteConverter.from_keras_model(model)
+                converter.optimizations = [tf.lite.Optimize.DEFAULT]
+                converter.representative_dataset = (
+                    self.__generate_representative_dataset_factory(dataset_dir)
+                )
+                converter.target_spec.supported_ops = [
+                    tf.lite.OpsSet.TFLITE_BUILTINS_INT8
+                ]
+                converter.inference_input_type = tf.uint8
+                converter.inference_output_type = tf.uint8
+                tflite_model = converter.convert()
 
             # write model
             model_path = os.path.join(model_dir, "model.tflite")
@@ -330,7 +352,7 @@ def collect_state_classification_examples(
     1. Queries review items from specified cameras
     2. Selects 100 balanced timestamps across the data
     3. Extracts keyframes from recordings (cropped to specified regions)
-    4. Selects 20 most visually distinct images
+    4. Selects 24 most visually distinct images
     5. Saves them to the dataset directory
 
     Args:
@@ -338,8 +360,6 @@ def collect_state_classification_examples(
         cameras: Dict mapping camera names to normalized crop coordinates [x1, y1, x2, y2] (0-1)
     """
     dataset_dir = os.path.join(CLIPS_DIR, model_name, "dataset")
-    temp_dir = os.path.join(dataset_dir, "temp")
-    os.makedirs(temp_dir, exist_ok=True)
 
     # Step 1: Get review items for the cameras
     camera_names = list(cameras.keys())
@@ -353,6 +373,10 @@ def collect_state_classification_examples(
     if not review_items:
         logger.warning(f"No review items found for cameras: {camera_names}")
         return
+
+    # The temp directory is only created when there are review_items.
+    temp_dir = os.path.join(dataset_dir, "temp")
+    os.makedirs(temp_dir, exist_ok=True)
 
     # Step 2: Create balanced timestamp selection (100 samples)
     timestamps = _select_balanced_timestamps(review_items, target_count=100)
@@ -482,6 +506,10 @@ def _extract_keyframes(
     """
     Extract keyframes from recordings at specified timestamps and crop to specified regions.
 
+    This implementation batches work by running multiple ffmpeg snapshot commands
+    concurrently, which significantly reduces total runtime compared to
+    processing each timestamp serially.
+
     Args:
         ffmpeg_path: Path to ffmpeg binary
         timestamps: List of timestamp dicts from _select_balanced_timestamps
@@ -491,15 +519,21 @@ def _extract_keyframes(
     Returns:
         List of paths to successfully extracted and cropped keyframe images
     """
-    keyframe_paths = []
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-    for idx, ts_info in enumerate(timestamps):
+    if not timestamps:
+        return []
+
+    # Limit the number of concurrent ffmpeg processes so we don't overload the host.
+    max_workers = min(5, len(timestamps))
+
+    def _process_timestamp(idx: int, ts_info: dict) -> tuple[int, str | None]:
         camera = ts_info["camera"]
         timestamp = ts_info["timestamp"]
 
         if camera not in camera_crops:
             logger.warning(f"No crop coordinates for camera {camera}")
-            continue
+            return idx, None
 
         norm_x1, norm_y1, norm_x2, norm_y2 = camera_crops[camera]
 
@@ -516,7 +550,7 @@ def _extract_keyframes(
                 .get()
             )
         except Exception:
-            continue
+            return idx, None
 
         relative_time = timestamp - recording.start_time
 
@@ -530,38 +564,57 @@ def _extract_keyframes(
                 height=None,
             )
 
-            if image_data:
-                nparr = np.frombuffer(image_data, np.uint8)
-                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if not image_data:
+                return idx, None
 
-                if img is not None:
-                    height, width = img.shape[:2]
+            nparr = np.frombuffer(image_data, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-                    x1 = int(norm_x1 * width)
-                    y1 = int(norm_y1 * height)
-                    x2 = int(norm_x2 * width)
-                    y2 = int(norm_y2 * height)
+            if img is None:
+                return idx, None
 
-                    x1_clipped = max(0, min(x1, width))
-                    y1_clipped = max(0, min(y1, height))
-                    x2_clipped = max(0, min(x2, width))
-                    y2_clipped = max(0, min(y2, height))
+            height, width = img.shape[:2]
 
-                    if x2_clipped > x1_clipped and y2_clipped > y1_clipped:
-                        cropped = img[y1_clipped:y2_clipped, x1_clipped:x2_clipped]
-                        resized = cv2.resize(cropped, (224, 224))
+            x1 = int(norm_x1 * width)
+            y1 = int(norm_y1 * height)
+            x2 = int(norm_x2 * width)
+            y2 = int(norm_y2 * height)
 
-                        output_path = os.path.join(output_dir, f"frame_{idx:04d}.jpg")
-                        cv2.imwrite(output_path, resized)
-                        keyframe_paths.append(output_path)
+            x1_clipped = max(0, min(x1, width))
+            y1_clipped = max(0, min(y1, height))
+            x2_clipped = max(0, min(x2, width))
+            y2_clipped = max(0, min(y2, height))
 
+            if x2_clipped <= x1_clipped or y2_clipped <= y1_clipped:
+                return idx, None
+
+            cropped = img[y1_clipped:y2_clipped, x1_clipped:x2_clipped]
+            resized = cv2.resize(cropped, (224, 224))
+
+            output_path = os.path.join(output_dir, f"frame_{idx:04d}.jpg")
+            cv2.imwrite(output_path, resized)
+            return idx, output_path
         except Exception as e:
             logger.debug(
                 f"Failed to extract frame from {recording.path} at {relative_time}s: {e}"
             )
-            continue
+            return idx, None
 
-    return keyframe_paths
+    keyframes_with_index: list[tuple[int, str]] = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_idx = {
+            executor.submit(_process_timestamp, idx, ts_info): idx
+            for idx, ts_info in enumerate(timestamps)
+        }
+
+        for future in as_completed(future_to_idx):
+            _, path = future.result()
+            if path:
+                keyframes_with_index.append((future_to_idx[future], path))
+
+    keyframes_with_index.sort(key=lambda item: item[0])
+    return [path for _, path in keyframes_with_index]
 
 
 def _select_distinct_images(
@@ -660,7 +713,6 @@ def collect_object_classification_examples(
     Args:
         model_name: Name of the classification model
         label: Object label to collect (e.g., "person", "car")
-        cameras: List of camera names to collect examples from
     """
     dataset_dir = os.path.join(CLIPS_DIR, model_name, "dataset")
     temp_dir = os.path.join(dataset_dir, "temp")

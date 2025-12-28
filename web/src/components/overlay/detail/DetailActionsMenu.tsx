@@ -15,6 +15,7 @@ import {
 import { HiDotsHorizontal } from "react-icons/hi";
 import { SearchResult } from "@/types/search";
 import { FrigateConfig } from "@/types/frigateConfig";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 type Props = {
   search: SearchResult | Event;
@@ -35,6 +36,7 @@ export default function DetailActionsMenu({
   const { t } = useTranslation(["views/explore", "views/faceLibrary"]);
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
+  const isAdmin = useIsAdmin();
 
   const clipTimeRange = useMemo(() => {
     const startTime = (search.start_time ?? 0) - REVIEW_PADDING;
@@ -46,6 +48,29 @@ export default function DetailActionsMenu({
   const { data: reviewItem } = useSWR<ReviewSegment>(
     search.data?.type === "audio" ? null : [`review/event/${search.id}`],
   );
+
+  // don't render menu at all if no options are available
+  const hasSemanticSearchOption =
+    config?.semantic_search.enabled &&
+    setSimilarity !== undefined &&
+    search.data?.type === "object";
+
+  const hasReviewItem = !!(reviewItem && reviewItem.id);
+
+  const hasAdminTriggerOption =
+    isAdmin &&
+    config?.semantic_search.enabled &&
+    search.data?.type === "object";
+
+  if (
+    !search.has_snapshot &&
+    !search.has_clip &&
+    !hasSemanticSearchOption &&
+    !hasReviewItem &&
+    !hasAdminTriggerOption
+  ) {
+    return null;
+  }
 
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
@@ -69,6 +94,20 @@ export default function DetailActionsMenu({
               </a>
             </DropdownMenuItem>
           )}
+          {search.has_snapshot &&
+            config?.cameras[search.camera].snapshots.clean_copy && (
+              <DropdownMenuItem>
+                <a
+                  className="w-full"
+                  href={`${baseUrl}api/events/${search.id}/snapshot-clean.webp`}
+                  download={`${search.camera}_${search.label}-clean.webp`}
+                >
+                  <div className="flex cursor-pointer items-center gap-2">
+                    <span>{t("itemMenu.downloadCleanSnapshot.label")}</span>
+                  </div>
+                </a>
+              </DropdownMenuItem>
+            )}
           {search.has_clip && (
             <DropdownMenuItem>
               <a
@@ -116,22 +155,24 @@ export default function DetailActionsMenu({
             </DropdownMenuItem>
           )}
 
-          {config?.semantic_search.enabled && search.data.type == "object" && (
-            <DropdownMenuItem
-              onClick={() => {
-                setIsOpen(false);
-                setTimeout(() => {
-                  navigate(
-                    `/settings?page=triggers&camera=${search.camera}&event_id=${search.id}`,
-                  );
-                }, 0);
-              }}
-            >
-              <div className="flex cursor-pointer items-center gap-2">
-                <span>{t("itemMenu.addTrigger.label")}</span>
-              </div>
-            </DropdownMenuItem>
-          )}
+          {isAdmin &&
+            config?.semantic_search.enabled &&
+            search.data.type == "object" && (
+              <DropdownMenuItem
+                onClick={() => {
+                  setIsOpen(false);
+                  setTimeout(() => {
+                    navigate(
+                      `/settings?page=triggers&camera=${search.camera}&event_id=${search.id}`,
+                    );
+                  }, 0);
+                }}
+              >
+                <div className="flex cursor-pointer items-center gap-2">
+                  <span>{t("itemMenu.addTrigger.label")}</span>
+                </div>
+              </DropdownMenuItem>
+            )}
         </DropdownMenuContent>
       </DropdownMenuPortal>
     </DropdownMenu>

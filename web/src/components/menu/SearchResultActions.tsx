@@ -31,6 +31,7 @@ import {
 import useSWR from "swr";
 import { Trans, useTranslation } from "react-i18next";
 import BlurredIconButton from "../button/BlurredIconButton";
+import { useIsAdmin } from "@/hooks/use-is-admin";
 
 type SearchResultActionsProps = {
   searchResult: SearchResult;
@@ -52,6 +53,7 @@ export default function SearchResultActions({
   children,
 }: SearchResultActionsProps) {
   const { t } = useTranslation(["views/explore"]);
+  const isAdmin = useIsAdmin();
 
   const { data: config } = useSWR<FrigateConfig>("config");
 
@@ -108,6 +110,18 @@ export default function SearchResultActions({
           </a>
         </MenuItem>
       )}
+      {searchResult.has_snapshot &&
+        config?.cameras[searchResult.camera].snapshots.clean_copy && (
+          <MenuItem aria-label={t("itemMenu.downloadCleanSnapshot.aria")}>
+            <a
+              className="flex items-center"
+              href={`${baseUrl}api/events/${searchResult.id}/snapshot-clean.webp`}
+              download={`${searchResult.camera}_${searchResult.label}-clean.webp`}
+            >
+              <span>{t("itemMenu.downloadCleanSnapshot.label")}</span>
+            </a>
+          </MenuItem>
+        )}
       {searchResult.data.type == "object" && (
         <MenuItem
           aria-label={t("itemMenu.viewTrackingDetails.aria")}
@@ -125,7 +139,8 @@ export default function SearchResultActions({
             <span>{t("itemMenu.findSimilar.label")}</span>
           </MenuItem>
         )}
-      {config?.semantic_search?.enabled &&
+      {isAdmin &&
+        config?.semantic_search?.enabled &&
         searchResult.data.type == "object" && (
           <MenuItem
             aria-label={t("itemMenu.addTrigger.aria")}
@@ -134,12 +149,14 @@ export default function SearchResultActions({
             <span>{t("itemMenu.addTrigger.label")}</span>
           </MenuItem>
         )}
-      <MenuItem
-        aria-label={t("itemMenu.deleteTrackedObject.label")}
-        onClick={() => setDeleteDialogOpen(true)}
-      >
-        <span>{t("button.delete", { ns: "common" })}</span>
-      </MenuItem>
+      {isAdmin && (
+        <MenuItem
+          aria-label={t("itemMenu.deleteTrackedObject.label")}
+          onClick={() => setDeleteDialogOpen(true)}
+        >
+          <span>{t("button.delete", { ns: "common" })}</span>
+        </MenuItem>
+      )}
     </>
   );
 
@@ -172,7 +189,7 @@ export default function SearchResultActions({
         </AlertDialogContent>
       </AlertDialog>
       {isContextMenu ? (
-        <ContextMenu>
+        <ContextMenu modal={false}>
           <ContextMenuTrigger>{children}</ContextMenuTrigger>
           <ContextMenuContent>{menuItems}</ContextMenuContent>
         </ContextMenu>

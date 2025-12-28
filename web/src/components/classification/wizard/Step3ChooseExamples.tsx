@@ -45,6 +45,12 @@ export default function Step3ChooseExamples({
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentClassIndex, setCurrentClassIndex] = useState(0);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [cacheKey, setCacheKey] = useState<number>(Date.now());
+  const [loadedImages, setLoadedImages] = useState<Set<string>>(new Set());
+
+  const handleImageLoad = useCallback((imageName: string) => {
+    setLoadedImages((prev) => new Set(prev).add(imageName));
+  }, []);
 
   const { data: trainImages, mutate: refreshTrainImages } = useSWR<string[]>(
     hasGenerated ? `classification/${step1Data.modelName}/train` : null,
@@ -141,7 +147,37 @@ export default function Step3ChooseExamples({
       );
       await Promise.all(categorizePromises);
 
-      // Step 2.5: Create empty folders for classes that don't have any images
+      // Step 2.5: Delete any unselected images from train folder
+      // For state models, all images must be classified, so unselected images should be removed
+      // For object models, unselected images are assigned to "none" so they're already categorized
+      if (step1Data.modelType === "state") {
+        try {
+          // Fetch current train images to see what's left after categorization
+          const trainImagesResponse = await axios.get<string[]>(
+            `/classification/${step1Data.modelName}/train`,
+          );
+          const remainingTrainImages = trainImagesResponse.data || [];
+
+          const categorizedImageNames = new Set(Object.keys(classifications));
+          const unselectedImages = remainingTrainImages.filter(
+            (imageName) => !categorizedImageNames.has(imageName),
+          );
+
+          if (unselectedImages.length > 0) {
+            await axios.post(
+              `/classification/${step1Data.modelName}/train/delete`,
+              {
+                ids: unselectedImages,
+              },
+            );
+          }
+        } catch (error) {
+          // Silently fail - unselected images will remain but won't cause issues
+          // since the frontend filters out images that don't match expected format
+        }
+      }
+
+      // Step 2.6: Create empty folders for classes that don't have any images
       // This ensures all classes are available in the dataset view later
       const classesWithImages = new Set(
         Object.values(classifications).filter((c) => c && c !== "none"),
@@ -156,15 +192,17 @@ export default function Step3ChooseExamples({
       await Promise.all(emptyFolderPromises);
 
       // Step 3: Determine if we should train
-      // For state models, we need ALL states to have examples
-      // For object models, we need at least 2 classes with images
+      // For state models, we need ALL states to have examples (at least 2 states)
+      // For object models, we need at least 1 class with images (the rest go to "none")
       const allStatesHaveExamplesForTraining =
         step1Data.modelType !== "state" ||
         step1Data.classes.every((className) =>
           classesWithImages.has(className),
         );
       const shouldTrain =
-        allStatesHaveExamplesForTraining && classesWithImages.size >= 2;
+        step1Data.modelType === "object"
+          ? classesWithImages.size >= 1
+          : allStatesHaveExamplesForTraining && classesWithImages.size >= 2;
 
       // Step 4: Kick off training only if we have enough classes with images
       if (shouldTrain) {
@@ -300,6 +338,8 @@ export default function Step3ChooseExamples({
       setHasGenerated(true);
       toast.success(t("wizard.step3.generateSuccess"));
 
+      // Update cache key to force image reload
+      setCacheKey(Date.now());
       await refreshTrainImages();
     } catch (error) {
       const axiosError = error as {
@@ -406,30 +446,6 @@ export default function Step3ChooseExamples({
     if (step1Data.modelType !== "state") return true;
     return allClasses.every((className) => statesWithExamples.has(className));
   }, [step1Data.modelType, allClasses, statesWithExamples]);
-
-  // For state models on the last class, require all images to be classified
-  // But allow proceeding even if not all states have examples (with warning)
-  const canProceed = useMemo(() => {
-    if (step1Data.modelType === "state" && isLastClass) {
-      // Check if all 24 images will be classified after current selections are applied
-      const totalImages = unknownImages.slice(0, 24).length;
-
-      // Count images that will be classified (either already classified or currently selected)
-      const allImages = unknownImages.slice(0, 24);
-      const willBeClassified = allImages.filter((img) => {
-        return imageClassifications[img] || selectedImages.has(img);
-      }).length;
-
-      return willBeClassified >= totalImages;
-    }
-    return true;
-  }, [
-    step1Data.modelType,
-    isLastClass,
-    unknownImages,
-    imageClassifications,
-    selectedImages,
-  ]);
 
   const hasUnclassifiedImages = useMemo(() => {
     if (!unknownImages) return false;
@@ -557,10 +573,16 @@ export default function Step3ChooseExamples({
                       )}
                       onClick={() => toggleImageSelection(imageName)}
                     >
+                      {!loadedImages.has(imageName) && (
+                        <div className="flex h-full items-center justify-center">
+                          <ActivityIndicator className="size-6" />
+                        </div>
+                      )}
                       <img
-                        src={`${baseUrl}clips/${step1Data.modelName}/train/${imageName}`}
+                        src={`${baseUrl}clips/${step1Data.modelName}/train/${imageName}?t=${cacheKey}`}
                         alt={`Example ${index + 1}`}
                         className="h-full w-full object-cover"
+                        onLoad={() => handleImageLoad(imageName)}
                       />
                     </div>
                   );
@@ -594,9 +616,7 @@ export default function Step3ChooseExamples({
             }
             variant="select"
             className="flex items-center justify-center gap-2 sm:flex-1"
-            disabled={
-              !hasGenerated || isGenerating || isProcessing || !canProceed
-            }
+            disabled={!hasGenerated || isGenerating || isProcessing}
           >
             {isProcessing && <ActivityIndicator className="size-4" />}
             {t("button.continue", { ns: "common" })}

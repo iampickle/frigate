@@ -330,7 +330,8 @@
         "audioCodecRequired": "An audio stream is required to support audio detection.",
         "restreamingWarning": "Reducing connections to the camera for the record stream may increase CPU usage slightly.",
         "brands": {
-          "reolink-rtsp": "Reolink RTSP is not recommended. Enable HTTP in the camera's firmware settings and restart the wizard."
+          "reolink-rtsp": "Reolink RTSP is not recommended. Enable HTTP in the camera's firmware settings and restart the wizard.",
+          "reolink-http": "Reolink HTTP streams should use FFmpeg for better compatibility. Enable 'Use stream compatibility mode' for this stream."
         },
         "dahua": {
           "substreamWarning": "Substream 1 is locked to a low resolution. Many Dahua / Amcrest / EmpireTech cameras support additional substreams that need to be enabled in the camera's settings. It is recommended to check and utilize those streams if available."
@@ -500,7 +501,7 @@
       "name": {
         "title": "Name",
         "inputPlaceHolder": "Enter a name…",
-        "tips": "Name must be at least 2 characters, must have at least one letter, and must not be the name of a camera or another zone."
+        "tips": "Name must be at least 2 characters, must have at least one letter, and must not be the name of a camera or another zone on this camera."
       },
       "inertia": {
         "title": "Inertia",
@@ -534,7 +535,7 @@
         }
       },
       "toast": {
-        "success": "Zone ({{zoneName}}) has been saved. Restart Frigate to apply changes."
+        "success": "Zone ({{zoneName}}) has been saved."
       }
     },
     "motionMasks": {
@@ -558,8 +559,8 @@
       },
       "toast": {
         "success": {
-          "title": "{{polygonName}} has been saved. Restart Frigate to apply changes.",
-          "noName": "Motion Mask has been saved. Restart Frigate to apply changes."
+          "title": "{{polygonName}} has been saved.",
+          "noName": "Motion Mask has been saved."
         }
       }
     },
@@ -583,8 +584,8 @@
       },
       "toast": {
         "success": {
-          "title": "{{polygonName}} has been saved. Restart Frigate to apply changes.",
-          "noName": "Object Mask has been saved. Restart Frigate to apply changes."
+          "title": "{{polygonName}} has been saved.",
+          "noName": "Object Mask has been saved."
         }
       }
     }
@@ -678,7 +679,7 @@
       "desc": "Manage this Frigate instance's user accounts."
     },
     "addUser": "Add User",
-    "updatePassword": "Update Password",
+    "updatePassword": "Reset Password",
     "toast": {
       "success": {
         "createUser": "User {{user}} created successfully",
@@ -699,7 +700,7 @@
       "role": "Role",
       "noUsers": "No users found.",
       "changeRole": "Change user role",
-      "password": "Password",
+      "password": "Reset Password",
       "deleteUser": "Delete user"
     },
     "dialog": {
@@ -712,6 +713,8 @@
         "password": {
           "title": "Password",
           "placeholder": "Enter password",
+          "show": "Show password",
+          "hide": "Hide password",
           "confirm": {
             "title": "Confirm Password",
             "placeholder": "Confirm Password"
@@ -723,6 +726,13 @@
             "strong": "Strong",
             "veryStrong": "Very Strong"
           },
+          "requirements": {
+            "title": "Password requirements:",
+            "length": "At least 8 characters",
+            "uppercase": "At least one uppercase letter",
+            "digit": "At least one digit",
+            "special": "At least one special character (!@#$%^&*(),.?\":{}|<>)"
+          },
           "match": "Passwords match",
           "notMatch": "Passwords don't match"
         },
@@ -732,6 +742,10 @@
           "confirm": {
             "placeholder": "Re-enter new password"
           }
+        },
+        "currentPassword": {
+          "title": "Current Password",
+          "placeholder": "Enter your current password"
         },
         "usernameIsRequired": "Username is required",
         "passwordIsRequired": "Password is required"
@@ -750,9 +764,14 @@
       "passwordSetting": {
         "cannotBeEmpty": "Password cannot be empty",
         "doNotMatch": "Passwords do not match",
+        "currentPasswordRequired": "Current password is required",
+        "incorrectCurrentPassword": "Current password is incorrect",
+        "passwordVerificationFailed": "Failed to verify password",
         "updatePassword": "Update Password for {{username}}",
         "setPassword": "Set Password",
-        "desc": "Create a strong password to secure this account."
+        "desc": "Create a strong password to secure this account.",
+        "multiDeviceWarning": "Any other devices where you are logged in will be required to re-login within {{refresh_time}}.",
+        "multiDeviceAdmin": "You can also force all users to re-authenticate immediately by rotating your JWT secret."
       },
       "changeRole": {
         "title": "Change User Role",

@@ -123,7 +123,7 @@ auth:
   # Optional: Refresh time in seconds (default: shown below)
   # When the session is going to expire in less time than this setting,
   # it will be refreshed back to the session_length.
-  refresh_time: 43200 # 12 hours
+  refresh_time: 1800 # 30 minutes
   # Optional: Rate limiting for login failures to help prevent brute force
   # login attacks (default: shown below)
   # See the docs for more information on valid values
@@ -710,6 +710,44 @@ audio_transcription:
   # List of language codes: https://github.com/openai/whisper/blob/main/whisper/tokenizer.py#L10
   language: en
 
+# Optional: Configuration for classification models
+classification:
+  # Optional: Configuration for bird classification
+  bird:
+    # Optional: Enable bird classification (default: shown below)
+    enabled: False
+    # Optional: Minimum classification score required to be considered a match (default: shown below)
+    threshold: 0.9
+  custom:
+    # Required: name of the classification model
+    model_name:
+      # Optional: Enable running the model (default: shown below)
+      enabled: True
+      # Optional: Name of classification model (default: shown below)
+      name: None
+      # Optional: Classification score threshold to change the state (default: shown below)
+      threshold: 0.8
+      # Optional: Number of classification attempts to save in the recent classifications tab (default: shown below)
+      # NOTE: Defaults to 200 for object classification and 100 for state classification if not specified
+      save_attempts: None
+      # Optional: Object classification configuration
+      object_config:
+        # Required: Object types to classify
+        objects: [dog]
+        # Optional: Type of classification that is applied (default: shown below)
+        classification_type: sub_label
+      # Optional: State classification configuration
+      state_config:
+        # Required: Cameras to run classification on
+        cameras:
+          camera_name:
+            # Required: Crop of image frame on this camera to run classification on
+            crop: [0, 180, 220, 400]
+        # Optional: If classification should be run when motion is detected in the crop (default: shown below)
+        motion: False
+        # Optional: Interval to run classification on in seconds (default: shown below)
+        interval: None
+
 # Optional: Restream configuration
 # Uses https://github.com/AlexxIT/go2rtc (v1.9.10)
 # NOTE: The default go2rtc API port (1984) must be used,
@@ -873,7 +911,7 @@ cameras:
       user: admin
       # Optional: password for login.
       password: admin
-      # Optional: Skip TLS verification from the ONVIF server (default: shown below)
+      # Optional: Skip TLS verification and disable digest authentication for the ONVIF server (default: shown below)
       tls_insecure: False
       # Optional: Ignores time synchronization mismatches between the camera and the server during authentication.
       # Using NTP on both ends is recommended and this should only be set to True in a "safe" environment due to the security risk it represents.
@@ -964,10 +1002,6 @@ ui:
   #    full: 8:15:22 PM Mountain Standard Time
   # (default: shown below).
   time_style: medium
-  # Optional: Ability to manually override the date / time styling to use strftime format
-  # https://www.gnu.org/software/libc/manual/html_node/Formatting-Calendar-Time.html
-  # possible values are shown above (default: not set)
-  strftime_fmt: "%Y/%m/%d %H:%M"
   # Optional: Set the unit system to either "imperial" or "metric" (default: metric)
   # Used in the UI and in MQTT topics
   unit_system: metric

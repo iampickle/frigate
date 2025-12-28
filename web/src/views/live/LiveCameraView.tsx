@@ -102,7 +102,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { usePersistence } from "@/hooks/use-persistence";
+import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import axios from "axios";
@@ -111,6 +111,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslation } from "react-i18next";
 import { useDocDomain } from "@/hooks/use-doc-domain";
+import { detectCameraAudioFeatures } from "@/utils/cameraUtil";
 import PtzControlPanel from "@/components/overlay/PtzControlPanel";
 import ObjectSettingsView from "../settings/ObjectSettingsView";
 import { useSearchEffect } from "@/hooks/use-overlay-state";
@@ -147,10 +148,11 @@ export default function LiveCameraView({
 
   // supported features
 
-  const [streamName, setStreamName] = usePersistence<string>(
-    `${camera.name}-stream`,
-    Object.values(camera.live.streams)[0],
-  );
+  const [streamName, setStreamName, streamNameLoaded] =
+    useUserPersistence<string>(
+      `${camera.name}-stream`,
+      Object.values(camera.live.streams)[0],
+    );
 
   const isRestreamed = useMemo(
     () =>
@@ -158,6 +160,19 @@ export default function LiveCameraView({
       Object.keys(config.go2rtc.streams || {}).includes(streamName ?? ""),
     [config, streamName],
   );
+
+  // validate stored stream name and reset if now invalid
+
+  useEffect(() => {
+    if (!streamNameLoaded) return;
+
+    const available = Object.values(camera.live.streams || {});
+    if (available.length === 0) return;
+
+    if (streamName != null && !available.includes(streamName)) {
+      setStreamName(available[0]);
+    }
+  }, [streamNameLoaded, camera.live.streams, streamName, setStreamName]);
 
   const { data: cameraMetadata } = useSWR<LiveStreamMetadata>(
     isRestreamed ? `go2rtc/streams/${streamName}` : null,
@@ -169,34 +184,8 @@ export default function LiveCameraView({
     },
   );
 
-  const supports2WayTalk = useMemo(() => {
-    if (!window.isSecureContext || !cameraMetadata) {
-      return false;
-    }
-
-    return (
-      cameraMetadata.producers.find(
-        (prod) =>
-          prod.medias &&
-          prod.medias.find((media) => media.includes("audio, sendonly")) !=
-          undefined,
-      ) != undefined
-    );
-  }, [cameraMetadata]);
-  const supportsAudioOutput = useMemo(() => {
-    if (!cameraMetadata) {
-      return false;
-    }
-
-    return (
-      cameraMetadata.producers.find(
-        (prod) =>
-          prod.medias &&
-          prod.medias.find((media) => media.includes("audio, recvonly")) !=
-          undefined,
-      ) != undefined
-    );
-  }, [cameraMetadata]);
+  const { twoWayAudio: supports2WayTalk, audioOutput: supportsAudioOutput } =
+    useMemo(() => detectCameraAudioFeatures(cameraMetadata), [cameraMetadata]);
 
   // camera enabled state
   const { payload: enabledState } = useEnabledState(camera.name);
@@ -280,7 +269,7 @@ export default function LiveCameraView({
   const [pip, setPip] = useState(false);
   const [lowBandwidth, setLowBandwidth] = useState(false);
 
-  const [playInBackground, setPlayInBackground] = usePersistence<boolean>(
+  const [playInBackground, setPlayInBackground] = useUserPersistence<boolean>(
     `${camera.name}-background-play`,
     false,
   );
@@ -1461,7 +1450,7 @@ function FrigateCameraFeatures({
                         ns: "components/dialog",
                       })}
                     </div>
-                    <Popover>
+                    <Popover modal={true}>
                       <PopoverTrigger asChild>
                         <div className="cursor-pointer p-0">
                           <LuInfo className="size-4" />
@@ -1548,7 +1537,7 @@ function FrigateCameraFeatures({
                             <>
                               <LuX className="size-4 text-danger" />
                               <div>{t("stream.audio.unavailable")}</div>
-                              <Popover>
+                              <Popover modal={true}>
                                 <PopoverTrigger asChild>
                                   <div className="cursor-pointer p-0">
                                     <LuInfo className="size-4" />
@@ -1592,7 +1581,7 @@ function FrigateCameraFeatures({
                             <>
                               <LuX className="size-4 text-danger" />
                               <div>{t("stream.twoWayTalk.unavailable")}</div>
-                              <Popover>
+                              <Popover modal={true}>
                                 <PopoverTrigger asChild>
                                   <div className="cursor-pointer p-0">
                                     <LuInfo className="size-4" />

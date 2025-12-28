@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import Hls from "hls.js";
+import Hls, { HlsConfig } from "hls.js";
 import { isDesktop, isMobile } from "react-device-detect";
 import { TransformComponent, TransformWrapper } from "react-zoom-pan-pinch";
 import VideoControls from "./VideoControls";
@@ -15,7 +15,7 @@ import { FrigateConfig } from "@/types/frigateConfig";
 import { AxiosResponse } from "axios";
 import { toast } from "sonner";
 import { useOverlayState } from "@/hooks/use-overlay-state";
-import { usePersistence } from "@/hooks/use-persistence";
+import { useUserPersistence } from "@/hooks/use-user-persistence";
 import { cn } from "@/lib/utils";
 import { ASPECT_VERTICAL_LAYOUT, RecordingPlayerError } from "@/types/record";
 import { useTranslation } from "react-i18next";
@@ -170,11 +170,14 @@ export default function HlsVideoPlayer({
       return;
     }
 
-    hlsRef.current = new Hls({
+    // Base HLS configuration
+    const hlsConfig: Partial<HlsConfig> = {
       maxBufferLength: 10,
       maxBufferSize: 20 * 1000 * 1000,
       startPosition: currentSource.startPosition,
-    });
+    };
+
+    hlsRef.current = new Hls(hlsConfig);
     hlsRef.current.attachMedia(videoRef.current);
     hlsRef.current.loadSource(currentSource.playlist);
     videoRef.current.playbackRate = currentPlaybackRate;
@@ -210,9 +213,9 @@ export default function HlsVideoPlayer({
 
   const [tallCamera, setTallCamera] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
-  const [muted, setMuted] = usePersistence("hlsPlayerMuted", true);
+  const [muted, setMuted] = useUserPersistence("hlsPlayerMuted", true);
   const [volume, setVolume] = useOverlayState("playerVolume", 1.0);
-  const [defaultPlaybackRate] = usePersistence("playbackRate", 1);
+  const [defaultPlaybackRate] = useUserPersistence("playbackRate", 1);
   const [playbackRate, setPlaybackRate] = useOverlayState(
     "playbackRate",
     defaultPlaybackRate ?? 1,
@@ -353,7 +356,17 @@ export default function HlsVideoPlayer({
           loadedMetadata &&
           videoDimensions.width > 0 &&
           videoDimensions.height > 0 && (
-            <div className="absolute z-50 size-full">
+            <div
+              className={cn(
+                "absolute inset-0 z-50",
+                isDesktop
+                  ? "size-full"
+                  : "mx-auto flex items-center justify-center portrait:max-h-[50dvh]",
+              )}
+              style={{
+                aspectRatio: `${videoDimensions.width} / ${videoDimensions.height}`,
+              }}
+            >
               <ObjectTrackOverlay
                 key={`overlay-${currentTime}`}
                 camera={camera}

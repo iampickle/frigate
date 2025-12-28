@@ -10,7 +10,8 @@ from fastapi.responses import JSONResponse
 from peewee import DoesNotExist
 from py_vapid import Vapid01, utils
 
-from frigate.api.auth import allow_any_authenticated
+from frigate.api.auth import allow_any_authenticated, get_current_user,require_role
+from frigate.api.defs.request.notification_body import SendNotificationBody
 from frigate.api.defs.tags import Tags
 from frigate.const import CONFIG_DIR
 from frigate.models import User

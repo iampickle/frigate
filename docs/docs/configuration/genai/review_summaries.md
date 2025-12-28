@@ -16,12 +16,13 @@ Review summaries provide structured JSON responses that are saved for each revie
 ```
 - `title` (string): A concise, direct title that describes the purpose or overall action (e.g., "Person taking out trash", "Joe walking dog").
 - `scene` (string): A narrative description of what happens across the sequence from start to finish, including setting, detected objects, and their observable actions.
+- `shortSummary` (string): A brief 2-sentence summary of the scene, suitable for notifications. This is a condensed version of the scene description.
 - `confidence` (float): 0-1 confidence in the analysis. Higher confidence when objects/actions are clearly visible and context is unambiguous.
 - `other_concerns` (list): List of user-defined concerns that may need additional investigation.
 - `potential_threat_level` (integer): 0, 1, or 2 as defined below.
 ```
 
-This will show in multiple places in the UI to give additional context about each activity, and allow viewing more details when extra attention is required. Frigate's built in notifications will also automatically show the title and description when the data is available.
+This will show in multiple places in the UI to give additional context about each activity, and allow viewing more details when extra attention is required. Frigate's built in notifications will automatically show the title and `shortSummary` when the data is available, while the full `scene` description is available in the UI for detailed review.
 
 ### Defining Typical Activity
 
@@ -111,3 +112,9 @@ review:
 ## Review Reports
 
 Along with individual review item summaries, Generative AI provides the ability to request a report of a given time period. For example, you can get a daily report while on a vacation of any suspicious activity or other concerns that may require review.
+
+### Requesting Reports Programmatically
+
+Review reports can be requested via the [API](/integrations/api#review-summarization) by sending a POST request to `/api/review/summarize/start/{start_ts}/end/{end_ts}` with Unix timestamps.
+
+For Home Assistant users, there is a built-in service (`frigate.review_summarize`) that makes it easy to request review reports as part of automations or scripts. This allows you to automatically generate daily summaries, vacation reports, or custom time period reports based on your specific needs.
