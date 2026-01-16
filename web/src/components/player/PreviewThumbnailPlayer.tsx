@@ -262,10 +262,18 @@ export default function PreviewThumbnailPlayer({
                         onClick={() => onClick(review, false, true)}
                       >
                         {review.data.objects.sort().map((object) => {
-                          return getIconForLabel(object, "size-3 text-white");
+                          return getIconForLabel(
+                            object,
+                            "object",
+                            "size-3 text-white",
+                          );
                         })}
                         {review.data.audio.map((audio) => {
-                          return getIconForLabel(audio, "size-3 text-white");
+                          return getIconForLabel(
+                            audio,
+                            "audio",
+                            "size-3 text-white",
+                          );
                         })}
                       </Chip>
                     </>
@@ -334,7 +342,9 @@ export default function PreviewThumbnailPlayer({
                     default:
                       return (
                         THREAT_LEVEL_LABELS[threatLevel as ThreatLevel] ||
-                        "Unknown"
+                        t("details.unknown", {
+                          ns: "views/classificationModel",
+                        })
                       );
                   }
                 })()}
