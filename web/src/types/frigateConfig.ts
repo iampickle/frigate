@@ -42,6 +42,7 @@ export interface CameraConfig {
       body?: string;
       icon?: string;
       standalone?: boolean;
+      confirmation?: boolean;
     }>;
   };
   audio: {

@@ -32,3 +32,22 @@ cameras:
       # weight_decay_days: 5      # Different decay time for this camera
       # weight_factor: 0.3        # Higher cooldown increase for this camera
       # weight_max_factor: 5.0    # Higher maximum multiplier for this camera
+    
+    # Optional: Camera actions
+    # actions:
+    #   actions:
+    #     - name: Turn on light
+    #       url: http://10.0.10.10/light/on
+    #       method: POST
+    #       icon: FaLightbulb
+    #       standalone: false         # Display as standalone button (default: false)
+    #       confirmation: false       # Show confirmation dialog before executing (default: false)
+    #     - name: Trigger siren
+    #       url: http://10.0.10.10/siren/trigger
+    #       method: POST
+    #       icon: FaBullhorn
+    #       standalone: true
+    #       confirmation: true        # User must confirm before executing this action
+    #       headers:
+    #         Authorization: Bearer YOUR_TOKEN
+    #       body: '{"duration": 5}'

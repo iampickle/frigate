@@ -122,7 +122,9 @@
     "on": "AN",
     "suspended": "Pausierte",
     "unsuspended": "fortsetzen",
-    "continue": "Weiter"
+    "continue": "Weiter",
+    "confirm": "Bestätigen",
+    "executing": "Wird ausgeführt..."
   },
   "label": {
     "back": "Zurück",
@@ -304,5 +306,7 @@
     "two": "{{0}} und {{1}}",
     "many": "{{items}}, und {{last}}",
     "separatorWithSpace": ", "
-  }
+  },
+  "confirmAction": "Aktion bestätigen",
+  "confirmActionDescription": "Möchten Sie wirklich \"{{actionName}}\" ausführen?"
 }

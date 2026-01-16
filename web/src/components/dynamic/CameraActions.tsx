@@ -5,6 +5,7 @@ import axios from "axios";
 import { CameraConfig } from "@/types/frigateConfig";
 import CameraFeatureToggle from "./CameraFeatureToggle";
 import { getActionIcon } from "./ActionIconMap";
+import ActionConfirmationDialog from "./ActionConfirmationDialog";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,6 +26,7 @@ export default function CameraActions({
     cameraEnabled,
 }: CameraActionsProps) {
     const [executingAction, setExecutingAction] = useState<string | null>(null);
+    const [pendingAction, setPendingAction] = useState<string | null>(null);
 
     // Don't render if no actions are configured
     if (!camera.actions?.actions || camera.actions.actions.length === 0) {
@@ -57,6 +59,21 @@ export default function CameraActions({
             });
         } finally {
             setExecutingAction(null);
+        }
+    };
+
+    const handleActionClick = (actionName: string, needsConfirmation: boolean) => {
+        if (needsConfirmation) {
+            setPendingAction(actionName);
+        } else {
+            executeAction(actionName);
+        }
+    };
+
+    const handleConfirmAction = () => {
+        if (pendingAction) {
+            setPendingAction(null);
+            executeAction(pendingAction);
         }
     };
 
@@ -96,7 +113,7 @@ export default function CameraActions({
                                 disabled={!cameraEnabled || isExecuting}
                                 onSelect={() => {
                                     if (cameraEnabled && !isExecuting) {
-                                        executeAction(action.name);
+                                        handleActionClick(action.name, action.confirmation || false);
                                     }
                                 }}
                             >
@@ -126,7 +143,7 @@ export default function CameraActions({
                     Icon={ActionIcon}
                     isActive={isExecuting}
                     title={isExecuting ? `Executing ${action.name}...` : action.name}
-                    onClick={() => executeAction(action.name)}
+                    onClick={() => handleActionClick(action.name, action.confirmation || false)}
                     disabled={!cameraEnabled || isExecuting}
                 />
             );
@@ -136,9 +153,31 @@ export default function CameraActions({
 
     // If only one component, return it directly
     if (components.length === 1) {
-        return components[0];
+        return (
+            <>
+                {components[0]}
+                <ActionConfirmationDialog
+                    open={pendingAction !== null}
+                    onOpenChange={(open) => !open && setPendingAction(null)}
+                    actionName={pendingAction || ""}
+                    onConfirm={handleConfirmAction}
+                    isExecuting={executingAction !== null}
+                />
+            </>
+        );
     }
 
-    // Multiple components, return them all
-    return components;
+    // Multiple components, return them all with the confirmation dialog
+    return (
+        <>
+            {components}
+            <ActionConfirmationDialog
+                open={pendingAction !== null}
+                onOpenChange={(open) => !open && setPendingAction(null)}
+                actionName={pendingAction || ""}
+                onConfirm={handleConfirmAction}
+                isExecuting={executingAction !== null}
+            />
+        </>
+    );
 }

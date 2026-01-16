@@ -149,7 +149,9 @@
     "export": "Export",
     "deleteNow": "Delete Now",
     "next": "Next",
-    "continue": "Continue"
+    "continue": "Continue",
+    "confirm": "Confirm",
+    "executing": "Executing..."
   },
   "menu": {
     "system": "System",
@@ -294,5 +296,7 @@
   "readTheDocumentation": "Read the documentation",
   "information": {
     "pixels": "{{area}}px"
-  }
+  },
+  "confirmAction": "Confirm Action",
+  "confirmActionDescription": "Are you sure you want to execute \"{{actionName}}\"?"
 }

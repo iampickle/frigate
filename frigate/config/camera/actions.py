@@ -13,6 +13,7 @@ class CameraActionConfig(BaseModel):
     body: Optional[str] = Field(default=None, description="Request body")
     icon: Optional[str] = Field(default=None, description="React icon name (e.g., 'FaLightbulb', 'FaBell')")
     standalone: bool = Field(default=False, description="Whether to display as standalone button instead of in dropdown")
+    confirmation: bool = Field(default=False, description="Whether to show confirmation dialog before executing action")
 
 
 class CameraActionsConfig(BaseModel):
