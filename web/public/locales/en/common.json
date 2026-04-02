@@ -3,6 +3,7 @@
     "untilForTime": "Until {{time}}",
     "untilForRestart": "Until Frigate restarts.",
     "untilRestart": "Until restart",
+    "never": "Never",
     "ago": "{{timeAgo}} ago",
     "justNow": "Just now",
     "today": "Today",
@@ -114,8 +115,11 @@
     "internalID": "The Internal ID Frigate uses in the configuration and database"
   },
   "button": {
+    "add": "Add",
     "apply": "Apply",
+    "applying": "Applying…",
     "reset": "Reset",
+    "undo": "Undo",
     "done": "Done",
     "enabled": "Enabled",
     "enable": "Enable",
@@ -126,6 +130,7 @@
     "cancel": "Cancel",
     "close": "Close",
     "copy": "Copy",
+    "copiedToClipboard": "Copied to clipboard",
     "back": "Back",
     "history": "History",
     "fullscreen": "Fullscreen",
@@ -151,13 +156,22 @@
     "next": "Next",
     "continue": "Continue",
     "confirm": "Confirm",
-    "executing": "Executing..."
+    "executing": "Executing...",
+    "modified": "Modified",
+    "overridden": "Overridden",
+    "resetToGlobal": "Reset to Global",
+    "resetToDefault": "Reset to Default",
+    "saveAll": "Save All",
+    "savingAll": "Saving All…",
+    "undoAll": "Undo All",
+    "retry": "Retry"
   },
   "menu": {
     "system": "System",
     "systemMetrics": "System metrics",
     "configuration": "Configuration",
     "systemLogs": "System logs",
+    "profiles": "Profiles",
     "settings": "Settings",
     "configurationEditor": "Configuration Editor",
     "languages": "Languages",
@@ -194,6 +208,7 @@
       "yue": "粵語 (Cantonese)",
       "th": "ไทย (Thai)",
       "ca": "Català (Catalan)",
+      "hr": "Hrvatski (Croatian)",
       "sr": "Српски (Serbian)",
       "sl": "Slovenščina (Slovenian)",
       "lt": "Lietuvių (Lithuanian)",
@@ -242,9 +257,11 @@
     "review": "Review",
     "explore": "Explore",
     "export": "Export",
+    "actions": "Actions",
     "uiPlayground": "UI Playground",
     "faceLibrary": "Face Library",
     "classification": "Classification",
+    "chat": "Chat",
     "user": {
       "title": "User",
       "account": "Account",
@@ -261,7 +278,8 @@
       "error": {
         "title": "Failed to save config changes: {{errorMessage}}",
         "noMessage": "Failed to save config changes"
-      }
+      },
+      "success": "Successfully saved config changes."
     }
   },
   "role": {
@@ -298,5 +316,7 @@
     "pixels": "{{area}}px"
   },
   "confirmAction": "Confirm Action",
-  "confirmActionDescription": "Are you sure you want to execute \"{{actionName}}\"?"
+  "confirmActionDescription": "Are you sure you want to execute \"{{actionName}}\"?",
+  "no_items": "No items",
+  "validation_errors": "Validation Errors"
 }

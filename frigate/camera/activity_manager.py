@@ -37,6 +37,9 @@ class CameraActivityManager:
             self.__init_camera(camera_config)
 
     def __init_camera(self, camera_config: CameraConfig) -> None:
+        if camera_config.name is None:
+            return
+
         self.last_camera_activity[camera_config.name] = {}
         self.camera_all_object_counts[camera_config.name] = Counter()
         self.camera_active_object_counts[camera_config.name] = Counter()
@@ -57,6 +60,9 @@ class CameraActivityManager:
         all_objects: list[dict[str, Any]] = []
 
         for camera in new_activity.keys():
+            if camera not in self.config.cameras:
+                continue
+
             # handle cameras that were added dynamically
             if camera not in self.camera_all_object_counts:
                 self.__init_camera(self.config.cameras[camera])
@@ -111,7 +117,7 @@ class CameraActivityManager:
         self.last_camera_activity = new_activity
 
     def compare_camera_activity(
-        self, camera: str, new_activity: dict[str, Any]
+        self, camera: str, new_activity: list[dict[str, Any]]
     ) -> None:
         all_objects = Counter(
             obj["label"].replace("-verified", "") for obj in new_activity
@@ -124,7 +130,11 @@ class CameraActivityManager:
         any_changed = False
 
         # run through each object and check what topics need to be updated
-        for label in self.config.cameras[camera].objects.track:
+        camera_config = self.config.cameras.get(camera)
+        if camera_config is None:
+            return
+
+        for label in camera_config.objects.track:
             if label in self.config.model.non_logo_attributes:
                 continue
 
@@ -168,12 +178,18 @@ class AudioActivityManager:
             self.__init_camera(camera_config)
 
     def __init_camera(self, camera_config: CameraConfig) -> None:
+        if camera_config.name is None:
+            return
+
         self.current_audio_detections[camera_config.name] = {}
 
     def update_activity(self, new_activity: dict[str, dict[str, Any]]) -> None:
         now = datetime.datetime.now().timestamp()
 
         for camera in new_activity.keys():
+            if camera not in self.config.cameras:
+                continue
+
             # handle cameras that were added dynamically
             if camera not in self.current_audio_detections:
                 self.__init_camera(self.config.cameras[camera])
@@ -192,8 +208,12 @@ class AudioActivityManager:
 
     def compare_audio_activity(
         self, camera: str, new_detections: list[tuple[str, float]], now: float
-    ) -> None:
-        max_not_heard = self.config.cameras[camera].audio.max_not_heard
+    ) -> bool:
+        camera_config = self.config.cameras.get(camera)
+        if camera_config is None:
+            return False
+
+        max_not_heard = camera_config.audio.max_not_heard
         current = self.current_audio_detections[camera]
 
         any_changed = False
@@ -222,6 +242,7 @@ class AudioActivityManager:
                         None,
                         "audio",
                         {},
+                        None,
                     ),
                     EventMetadataTypeEnum.manual_event_create.value,
                 )

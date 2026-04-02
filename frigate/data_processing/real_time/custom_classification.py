@@ -24,7 +24,8 @@ from frigate.const import CLIPS_DIR, MODEL_CACHE_DIR
 from frigate.log import suppress_stderr_during
 from frigate.types import TrackedObjectUpdateTypesEnum
 from frigate.util.builtin import EventsPerSecond, InferenceSpeed, load_labels
-from frigate.util.object import box_overlaps, calculate_region
+from frigate.util.image import calculate_region
+from frigate.util.object import box_overlaps
 
 from ..types import DataProcessorMetrics
 from .api import RealTimeProcessorApi
@@ -32,7 +33,7 @@ from .api import RealTimeProcessorApi
 try:
     from tflite_runtime.interpreter import Interpreter
 except ModuleNotFoundError:
-    from tensorflow.lite.python.interpreter import Interpreter
+    from ai_edge_litert.interpreter import Interpreter
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +50,16 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
     ):
         super().__init__(config, metrics)
         self.model_config = model_config
+
+        if not self.model_config.name:
+            raise ValueError("Custom classification model name must be set.")
+
         self.requestor = requestor
         self.model_dir = os.path.join(MODEL_CACHE_DIR, self.model_config.name)
         self.train_dir = os.path.join(CLIPS_DIR, self.model_config.name, "train")
-        self.interpreter: Interpreter = None
-        self.tensor_input_details: dict[str, Any] | None = None
-        self.tensor_output_details: dict[str, Any] | None = None
+        self.interpreter: Interpreter | None = None
+        self.tensor_input_details: list[dict[str, Any]] | None = None
+        self.tensor_output_details: list[dict[str, Any]] | None = None
         self.labelmap: dict[int, str] = {}
         self.classifications_per_second = EventsPerSecond()
         self.state_history: dict[str, dict[str, Any]] = {}
@@ -63,7 +68,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
             self.metrics
             and self.model_config.name in self.metrics.classification_speeds
         ):
-            self.inference_speed = InferenceSpeed(
+            self.inference_speed: InferenceSpeed | None = InferenceSpeed(
                 self.metrics.classification_speeds[self.model_config.name]
             )
         else:
@@ -73,11 +78,6 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         self.__build_detector()
 
     def __build_detector(self) -> None:
-        try:
-            from tflite_runtime.interpreter import Interpreter
-        except ModuleNotFoundError:
-            from tensorflow.lite.python.interpreter import Interpreter
-
         model_path = os.path.join(self.model_dir, "model.tflite")
         labelmap_path = os.path.join(self.model_dir, "labelmap.txt")
 
@@ -97,7 +97,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
             self.interpreter.allocate_tensors()
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
-        self.labelmap = load_labels(labelmap_path, prefill=0)
+        self.labelmap = load_labels(labelmap_path, prefill=0, indexed=False)
         self.classifications_per_second.start()
 
     def __update_metrics(self, duration: float) -> None:
@@ -177,12 +177,20 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
 
         return None
 
-    def process_frame(self, frame_data: dict[str, Any], frame: np.ndarray):
+    def process_frame(self, frame_data: dict[str, Any], frame: np.ndarray) -> None:
+        if (
+            not self.model_config.name
+            or not self.model_config.state_config
+            or not self.tensor_input_details
+            or not self.tensor_output_details
+        ):
+            return
+
         if self.metrics and self.model_config.name in self.metrics.classification_cps:
             self.metrics.classification_cps[
                 self.model_config.name
             ].value = self.classifications_per_second.eps()
-        camera = frame_data.get("camera")
+        camera = str(frame_data.get("camera"))
 
         if camera not in self.model_config.state_config.cameras:
             return
@@ -288,7 +296,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         logger.debug(
             f"{self.model_config.name} Ran state classification with probabilities: {probs}"
         )
-        best_id = np.argmax(probs)
+        best_id = int(np.argmax(probs))
         score = round(probs[best_id], 2)
         self.__update_metrics(datetime.datetime.now().timestamp() - now)
 
@@ -324,7 +332,9 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
                 verified_state,
             )
 
-    def handle_request(self, topic, request_data):
+    def handle_request(
+        self, topic: str, request_data: dict[str, Any]
+    ) -> dict[str, Any] | None:
         if topic == EmbeddingsRequestEnum.reload_classification_model.value:
             if request_data.get("model_name") == self.model_config.name:
                 self.__build_detector()
@@ -340,7 +350,7 @@ class CustomStateClassificationProcessor(RealTimeProcessorApi):
         else:
             return None
 
-    def expire_object(self, object_id, camera):
+    def expire_object(self, object_id: str, camera: str) -> None:
         pass
 
 
@@ -355,13 +365,17 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
     ):
         super().__init__(config, metrics)
         self.model_config = model_config
+
+        if not self.model_config.name:
+            raise ValueError("Custom classification model name must be set.")
+
         self.model_dir = os.path.join(MODEL_CACHE_DIR, self.model_config.name)
         self.train_dir = os.path.join(CLIPS_DIR, self.model_config.name, "train")
-        self.interpreter: Interpreter = None
+        self.interpreter: Interpreter | None = None
         self.sub_label_publisher = sub_label_publisher
         self.requestor = requestor
-        self.tensor_input_details: dict[str, Any] | None = None
-        self.tensor_output_details: dict[str, Any] | None = None
+        self.tensor_input_details: list[dict[str, Any]] | None = None
+        self.tensor_output_details: list[dict[str, Any]] | None = None
         self.classification_history: dict[str, list[tuple[str, float, float]]] = {}
         self.labelmap: dict[int, str] = {}
         self.classifications_per_second = EventsPerSecond()
@@ -370,7 +384,7 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
             self.metrics
             and self.model_config.name in self.metrics.classification_speeds
         ):
-            self.inference_speed = InferenceSpeed(
+            self.inference_speed: InferenceSpeed | None = InferenceSpeed(
                 self.metrics.classification_speeds[self.model_config.name]
             )
         else:
@@ -398,7 +412,7 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
             self.interpreter.allocate_tensors()
         self.tensor_input_details = self.interpreter.get_input_details()
         self.tensor_output_details = self.interpreter.get_output_details()
-        self.labelmap = load_labels(labelmap_path, prefill=0)
+        self.labelmap = load_labels(labelmap_path, prefill=0, indexed=False)
 
     def __update_metrics(self, duration: float) -> None:
         self.classifications_per_second.update()
@@ -419,18 +433,25 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         """
         if object_id not in self.classification_history:
             self.classification_history[object_id] = []
+            logger.debug(f"Created new classification history for {object_id}")
 
         self.classification_history[object_id].append(
             (current_label, current_score, current_time)
         )
 
         history = self.classification_history[object_id]
+        logger.debug(
+            f"History for {object_id}: {len(history)} entries, latest=({current_label}, {current_score})"
+        )
 
         if len(history) < 3:
+            logger.debug(
+                f"History for {object_id} has {len(history)} entries, need at least 3"
+            )
             return None, 0.0
 
-        label_counts = {}
-        label_scores = {}
+        label_counts: dict[str, int] = {}
+        label_scores: dict[str, list[float]] = {}
         total_attempts = len(history)
 
         for label, score, timestamp in history:
@@ -441,21 +462,42 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
             label_counts[label] += 1
             label_scores[label].append(score)
 
-        best_label = max(label_counts, key=label_counts.get)
+        best_label = max(label_counts, key=lambda k: label_counts[k])
         best_count = label_counts[best_label]
 
         consensus_threshold = total_attempts * 0.6
+        logger.debug(
+            f"Consensus calc for {object_id}: label_counts={label_counts}, "
+            f"best_label={best_label}, best_count={best_count}, "
+            f"total={total_attempts}, threshold={consensus_threshold}"
+        )
+
         if best_count < consensus_threshold:
+            logger.debug(
+                f"No consensus for {object_id}: {best_count} < {consensus_threshold}"
+            )
             return None, 0.0
 
         avg_score = sum(label_scores[best_label]) / len(label_scores[best_label])
 
         if best_label == "none":
+            logger.debug(f"Filtering 'none' label for {object_id}")
             return None, 0.0
 
+        logger.debug(
+            f"Consensus reached for {object_id}: {best_label} with avg_score={avg_score}"
+        )
         return best_label, avg_score
 
-    def process_frame(self, obj_data, frame):
+    def process_frame(self, obj_data: dict[str, Any], frame: np.ndarray) -> None:
+        if (
+            not self.model_config.name
+            or not self.model_config.object_config
+            or not self.tensor_input_details
+            or not self.tensor_output_details
+        ):
+            return
+
         if self.metrics and self.model_config.name in self.metrics.classification_cps:
             self.metrics.classification_cps[
                 self.model_config.name
@@ -540,7 +582,7 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         logger.debug(
             f"{self.model_config.name} Ran object classification with probabilities: {probs}"
         )
-        best_id = np.argmax(probs)
+        best_id = int(np.argmax(probs))
         score = round(probs[best_id], 2)
         self.__update_metrics(datetime.datetime.now().timestamp() - now)
 
@@ -560,17 +602,30 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         )
 
         if score < self.model_config.threshold:
-            logger.debug(f"Score {score} is less than threshold.")
+            logger.debug(
+                f"{self.model_config.name}: Score {score} < threshold {self.model_config.threshold} for {object_id}, skipping"
+            )
             return
 
         sub_label = self.labelmap[best_id]
+
+        logger.debug(
+            f"{self.model_config.name}: Object {object_id} (label={obj_data['label']}) passed threshold with sub_label={sub_label}, score={score}"
+        )
 
         consensus_label, consensus_score = self.get_weighted_score(
             object_id, sub_label, score, now
         )
 
+        logger.debug(
+            f"{self.model_config.name}: get_weighted_score returned consensus_label={consensus_label}, consensus_score={consensus_score} for {object_id}"
+        )
+
         if consensus_label is not None:
             camera = obj_data["camera"]
+            logger.debug(
+                f"{self.model_config.name}: Publishing sub_label={consensus_label} for {obj_data['label']} object {object_id} on {camera}"
+            )
 
             if (
                 self.model_config.object_config.classification_type
@@ -622,9 +677,10 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
                     ),
                 )
 
-    def handle_request(self, topic, request_data):
+    def handle_request(self, topic: str, request_data: dict) -> dict | None:
         if topic == EmbeddingsRequestEnum.reload_classification_model.value:
             if request_data.get("model_name") == self.model_config.name:
+                self.__build_detector()
                 logger.info(
                     f"Successfully loaded updated model for {self.model_config.name}"
                 )
@@ -637,12 +693,11 @@ class CustomObjectClassificationProcessor(RealTimeProcessorApi):
         else:
             return None
 
-    def expire_object(self, object_id, camera):
+    def expire_object(self, object_id: str, camera: str) -> None:
         if object_id in self.classification_history:
             self.classification_history.pop(object_id)
 
 
-@staticmethod
 def write_classification_attempt(
     folder: str,
     frame: np.ndarray,
@@ -662,7 +717,7 @@ def write_classification_attempt(
     # delete oldest face image if maximum is reached
     try:
         files = sorted(
-            filter(lambda f: (f.endswith(".webp")), os.listdir(folder)),
+            filter(lambda f: f.endswith(".webp"), os.listdir(folder)),
             key=lambda f: os.path.getctime(os.path.join(folder, f)),
             reverse=True,
         )

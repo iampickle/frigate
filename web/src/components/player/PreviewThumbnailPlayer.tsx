@@ -12,7 +12,7 @@ import useSWR from "swr";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { isIOS, isMobile, isSafari } from "react-device-detect";
 import Chip from "@/components/indicators/Chip";
-import { useFormattedTimestamp } from "@/hooks/use-date-utils";
+import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
 import useImageLoaded from "@/hooks/use-image-loaded";
 import { useSwipeable } from "react-swipeable";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -28,6 +28,7 @@ import { useTranslation } from "react-i18next";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { MdOutlinePersonSearch } from "react-icons/md";
 import { getTranslatedLabel } from "@/utils/i18n";
+import { formatList } from "@/utils/stringUtil";
 
 type PreviewPlayerProps = {
   review: ReviewSegment;
@@ -173,13 +174,20 @@ export default function PreviewThumbnailPlayer({
 
   // date
 
+  const is24Hour = use24HourTime(config);
   const formattedDate = useFormattedTimestamp(
     review.start_time,
-    config?.ui.time_format == "24hour"
+    is24Hour
       ? t("time.formattedTimestampMonthDayHourMinute.24hour", { ns: "common" })
       : t("time.formattedTimestampMonthDayHourMinute.12hour", { ns: "common" }),
     config?.ui?.timezone,
   );
+
+  const getEventType = (text: string) => {
+    if (review.data.sub_labels?.includes(text)) return "manual";
+    if (review.data.audio.includes(text)) return "audio";
+    return "object";
+  };
 
   return (
     <div
@@ -261,13 +269,16 @@ export default function PreviewThumbnailPlayer({
                         className={`flex items-start justify-between space-x-1 ${playingBack ? "hidden" : ""} bg-gradient-to-br ${review.has_been_reviewed ? "bg-green-600 from-green-600 to-green-700" : "bg-gray-500 from-gray-400 to-gray-500"} z-0`}
                         onClick={() => onClick(review, false, true)}
                       >
-                        {review.data.objects.sort().map((object) => {
-                          return getIconForLabel(
-                            object,
-                            "object",
-                            "size-3 text-white",
-                          );
-                        })}
+                        {review.data.objects
+                          .sort()
+                          .map((object, idx) =>
+                            getIconForLabel(
+                              object,
+                              "object",
+                              "size-3 text-white",
+                              `${object}-${idx}`,
+                            ),
+                          )}
                         {review.data.audio.map((audio) => {
                           return getIconForLabel(
                             audio,
@@ -281,23 +292,26 @@ export default function PreviewThumbnailPlayer({
                 </div>
               </TooltipTrigger>
             </div>
-            <TooltipContent className="smart-capitalize">
+            <TooltipContent>
               {review.data.metadata
                 ? review.data.metadata.title
-                : [
-                    ...new Set([
-                      ...(review.data.objects || []),
-                      ...(review.data.sub_labels || []),
-                      ...(review.data.audio || []),
-                    ]),
-                  ]
-                    .filter(
-                      (item) =>
-                        item !== undefined && !item.includes("-verified"),
-                    )
-                    .map((text) => getTranslatedLabel(text))
-                    .sort()
-                    .join(", ")}
+                : formatList(
+                    [
+                      ...new Set([
+                        ...(review.data.objects || []),
+                        ...(review.data.sub_labels || []),
+                        ...(review.data.audio || []),
+                      ]),
+                    ]
+                      .filter(
+                        (item) =>
+                          item !== undefined && !item.includes("-verified"),
+                      )
+                      .map((text) =>
+                        getTranslatedLabel(text, getEventType(text)),
+                      )
+                      .sort(),
+                  )}
             </TooltipContent>
           </Tooltip>
           {!!(

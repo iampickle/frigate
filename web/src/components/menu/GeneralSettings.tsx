@@ -2,6 +2,7 @@ import {
   LuActivity,
   LuGithub,
   LuLanguages,
+  LuLayers,
   LuLifeBuoy,
   LuList,
   LuLogOut,
@@ -42,12 +43,20 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { isDesktop, isMobile } from "react-device-detect";
-import { Drawer, DrawerContent, DrawerTrigger } from "../ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerTitle,
+  DrawerTrigger,
+} from "../ui/drawer";
 import {
   Dialog,
   DialogClose,
   DialogContent,
+  DialogDescription,
   DialogPortal,
+  DialogTitle,
   DialogTrigger,
 } from "../ui/dialog";
 import { TooltipPortal } from "@radix-ui/react-tooltip";
@@ -61,6 +70,9 @@ import SetPasswordDialog from "../overlay/SetPasswordDialog";
 import { toast } from "sonner";
 import axios from "axios";
 import { FrigateConfig } from "@/types/frigateConfig";
+import type { ProfilesApiResponse } from "@/types/profile";
+import { getProfileColor } from "@/utils/profileColors";
+import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "react-i18next";
 import { supportedLanguageKeys } from "@/lib/const";
 
@@ -76,6 +88,8 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
   const { getLocaleDocUrl } = useDocDomain();
   const { data: profile } = useSWR("profile");
   const { data: config } = useSWR<FrigateConfig>("config");
+  const { data: profilesData, mutate: updateProfiles } =
+    useSWR<ProfilesApiResponse>("profiles");
   const logoutUrl = config?.proxy?.logout_url || "/api/logout";
 
   // languages
@@ -96,6 +110,41 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
       };
     });
   }, [t]);
+
+  // profiles
+
+  const allProfileNames = useMemo(
+    () => profilesData?.profiles?.map((p) => p.name) ?? [],
+    [profilesData],
+  );
+
+  const profileFriendlyNames = useMemo(() => {
+    const map = new Map<string, string>();
+    profilesData?.profiles?.forEach((p) => map.set(p.name, p.friendly_name));
+    return map;
+  }, [profilesData]);
+
+  const hasProfiles = allProfileNames.length > 0;
+
+  const handleActivateProfile = async (profileName: string | null) => {
+    try {
+      await axios.put("camera/*/set/profile", { value: profileName ?? "none" });
+      await updateProfiles();
+      toast.success(
+        profileName
+          ? t("profiles.activated", {
+              ns: "views/settings",
+              profile: profileFriendlyNames.get(profileName) ?? profileName,
+            })
+          : t("profiles.deactivated", { ns: "views/settings" }),
+        { position: "top-center" },
+      );
+    } catch {
+      toast.error(t("profiles.activateFailed", { ns: "views/settings" }), {
+        position: "top-center",
+      });
+    }
+  };
 
   // settings
 
@@ -194,6 +243,16 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
               : "max-h-[75dvh] overflow-hidden p-2"
           }
         >
+          {!isDesktop && (
+            <>
+              <DrawerTitle className="sr-only">
+                {t("menu.settings")}
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">
+                {t("menu.settings")}
+              </DrawerDescription>
+            </>
+          )}
           <div className="scrollbar-container w-full flex-col overflow-y-auto overflow-x-hidden">
             {isMobile && (
               <div className="mb-2">
@@ -207,20 +266,24 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
                 <DropdownMenuSeparator
                   className={isDesktop ? "mt-3" : "mt-1"}
                 />
-                {profile?.username && profile.username !== "anonymous" && (
-                  <MenuItem
-                    className={
-                      isDesktop
-                        ? "cursor-pointer"
-                        : "flex items-center p-2 text-sm"
-                    }
-                    aria-label={t("menu.user.setPassword", { ns: "common" })}
-                    onClick={() => setPasswordDialogOpen(true)}
-                  >
-                    <LuSquarePen className="mr-2 size-4" />
-                    <span>{t("menu.user.setPassword", { ns: "common" })}</span>
-                  </MenuItem>
-                )}
+                {config?.auth?.enabled !== false &&
+                  profile?.username &&
+                  profile.username !== "anonymous" && (
+                    <MenuItem
+                      className={
+                        isDesktop
+                          ? "cursor-pointer"
+                          : "flex items-center p-2 text-sm"
+                      }
+                      aria-label={t("menu.user.setPassword", { ns: "common" })}
+                      onClick={() => setPasswordDialogOpen(true)}
+                    >
+                      <LuSquarePen className="mr-2 size-4" />
+                      <span>
+                        {t("menu.user.setPassword", { ns: "common" })}
+                      </span>
+                    </MenuItem>
+                  )}
                 <MenuItem
                   className={
                     isDesktop
@@ -267,6 +330,118 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
                       <span>{t("menu.systemLogs")}</span>
                     </MenuItem>
                   </Link>
+                  {hasProfiles && (
+                    <SubItem>
+                      <SubItemTrigger
+                        className={
+                          isDesktop
+                            ? "cursor-pointer"
+                            : "flex items-center p-2 text-sm"
+                        }
+                      >
+                        <LuLayers className="mr-2 size-4" />
+                        <span>{t("menu.profiles")}</span>
+                      </SubItemTrigger>
+                      <Portal>
+                        <SubItemContent
+                          className={
+                            isDesktop ? "" : "w-[92%] rounded-lg md:rounded-2xl"
+                          }
+                        >
+                          {!isDesktop && (
+                            <>
+                              <DialogTitle className="sr-only">
+                                {t("menu.profiles")}
+                              </DialogTitle>
+                              <DialogDescription className="sr-only">
+                                {t("menu.profiles")}
+                              </DialogDescription>
+                            </>
+                          )}
+                          <span tabIndex={0} className="sr-only" />
+                          <MenuItem
+                            className={
+                              isDesktop
+                                ? "cursor-pointer"
+                                : "flex items-center p-2 text-sm"
+                            }
+                            aria-label={t("profiles.baseConfig", {
+                              ns: "views/settings",
+                            })}
+                            onClick={() => handleActivateProfile(null)}
+                          >
+                            <div className="flex w-full items-center justify-between gap-2">
+                              <span className="ml-6 mr-2">
+                                {t("profiles.baseConfig", {
+                                  ns: "views/settings",
+                                })}
+                              </span>
+                              {!profilesData?.active_profile && (
+                                <Badge
+                                  variant="secondary"
+                                  className="text-xs text-primary-variant"
+                                >
+                                  {t("profiles.active", {
+                                    ns: "views/settings",
+                                  })}
+                                </Badge>
+                              )}
+                            </div>
+                          </MenuItem>
+                          {allProfileNames.map((profileName) => {
+                            const color = getProfileColor(
+                              profileName,
+                              allProfileNames,
+                            );
+                            const isActive =
+                              profilesData?.active_profile === profileName;
+                            return (
+                              <MenuItem
+                                key={profileName}
+                                className={
+                                  isDesktop
+                                    ? "cursor-pointer"
+                                    : "flex items-center p-2 text-sm"
+                                }
+                                aria-label={
+                                  profileFriendlyNames.get(profileName) ??
+                                  profileName
+                                }
+                                onClick={() =>
+                                  handleActivateProfile(profileName)
+                                }
+                              >
+                                <div className="flex w-full items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <span
+                                      className={cn(
+                                        "ml-2 size-2 shrink-0 rounded-full",
+                                        color.dot,
+                                      )}
+                                    />
+                                    <span>
+                                      {profileFriendlyNames.get(profileName) ??
+                                        profileName}
+                                    </span>
+                                  </div>
+                                  {isActive && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs text-primary-variant"
+                                    >
+                                      {t("profiles.active", {
+                                        ns: "views/settings",
+                                      })}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </MenuItem>
+                            );
+                          })}
+                        </SubItemContent>
+                      </Portal>
+                    </SubItem>
+                  )}
                 </DropdownMenuGroup>
               </>
             )}
@@ -355,6 +530,16 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
                       : "scrollbar-container max-h-[75dvh] w-[92%] overflow-y-scroll rounded-lg md:rounded-2xl"
                   }
                 >
+                  {!isDesktop && (
+                    <>
+                      <DialogTitle className="sr-only">
+                        {t("menu.languages")}
+                      </DialogTitle>
+                      <DialogDescription className="sr-only">
+                        {t("menu.languages")}
+                      </DialogDescription>
+                    </>
+                  )}
                   <span tabIndex={0} className="sr-only" />
                   {languages.map(({ code, label }) => (
                     <MenuItem
@@ -395,6 +580,16 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
                     isDesktop ? "" : "w-[92%] rounded-lg md:rounded-2xl"
                   }
                 >
+                  {!isDesktop && (
+                    <>
+                      <DialogTitle className="sr-only">
+                        {t("menu.darkMode.label")}
+                      </DialogTitle>
+                      <DialogDescription className="sr-only">
+                        {t("menu.darkMode.label")}
+                      </DialogDescription>
+                    </>
+                  )}
                   <span tabIndex={0} className="sr-only" />
                   <MenuItem
                     className={
@@ -472,6 +667,16 @@ export default function GeneralSettings({ className }: GeneralSettingsProps) {
                     isDesktop ? "" : "w-[92%] rounded-lg md:rounded-2xl"
                   }
                 >
+                  {!isDesktop && (
+                    <>
+                      <DialogTitle className="sr-only">
+                        {t("menu.theme.label")}
+                      </DialogTitle>
+                      <DialogDescription className="sr-only">
+                        {t("menu.theme.label")}
+                      </DialogDescription>
+                    </>
+                  )}
                   <span tabIndex={0} className="sr-only" />
                   {colorSchemes.map((scheme) => (
                     <MenuItem

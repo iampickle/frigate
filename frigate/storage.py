@@ -3,12 +3,13 @@
 import logging
 import shutil
 import threading
+from multiprocessing.synchronize import Event as MpEvent
 from pathlib import Path
 
 from peewee import SQL, fn
 
 from frigate.config import FrigateConfig
-from frigate.const import RECORD_DIR
+from frigate.const import RECORD_DIR, REPLAY_CAMERA_PREFIX
 from frigate.models import Event, Recordings
 from frigate.util.builtin import clear_and_unlink
 
@@ -23,7 +24,7 @@ MAX_CALCULATED_BANDWIDTH = 10000  # 10Gb/hr
 class StorageMaintainer(threading.Thread):
     """Maintain frigates recording storage."""
 
-    def __init__(self, config: FrigateConfig, stop_event) -> None:
+    def __init__(self, config: FrigateConfig, stop_event: MpEvent) -> None:
         super().__init__(name="storage_maintainer")
         self.config = config
         self.stop_event = stop_event
@@ -32,6 +33,10 @@ class StorageMaintainer(threading.Thread):
     def calculate_camera_bandwidth(self) -> None:
         """Calculate an average MB/hr for each camera."""
         for camera in self.config.cameras.keys():
+            # Skip replay cameras
+            if camera.startswith(REPLAY_CAMERA_PREFIX):
+                continue
+
             # cameras with < 50 segments should be refreshed to keep size accurate
             # when few segments are available
             if self.camera_storage_stats.get(camera, {}).get("needs_refresh", True):
@@ -77,6 +82,10 @@ class StorageMaintainer(threading.Thread):
         usages: dict[str, dict] = {}
 
         for camera in self.config.cameras.keys():
+            # Skip replay cameras
+            if camera.startswith(REPLAY_CAMERA_PREFIX):
+                continue
+
             camera_storage = (
                 Recordings.select(fn.SUM(Recordings.segment_size))
                 .where(Recordings.camera == camera, Recordings.segment_size != 0)
@@ -106,7 +115,7 @@ class StorageMaintainer(threading.Thread):
         logger.debug(
             f"Storage cleanup check: {hourly_bandwidth} hourly with remaining storage: {remaining_storage}."
         )
-        return remaining_storage < hourly_bandwidth
+        return remaining_storage < float(hourly_bandwidth)
 
     def reduce_storage_consumption(self) -> None:
         """Remove oldest hour of recordings."""
@@ -116,7 +125,7 @@ class StorageMaintainer(threading.Thread):
             [b["bandwidth"] for b in self.camera_storage_stats.values()]
         )
 
-        recordings: Recordings = (
+        recordings = (
             Recordings.select(
                 Recordings.id,
                 Recordings.camera,
@@ -130,7 +139,7 @@ class StorageMaintainer(threading.Thread):
             .iterator()
         )
 
-        retained_events: Event = (
+        retained_events = (
             Event.select(
                 Event.start_time,
                 Event.end_time,
@@ -270,8 +279,12 @@ class StorageMaintainer(threading.Thread):
                 Recordings.id << deleted_recordings_list[i : i + max_deletes]
             ).execute()
 
-    def run(self):
+    def run(self) -> None:
         """Check every 5 minutes if storage needs to be cleaned up."""
+        if self.config.safe_mode:
+            logger.info("Safe mode enabled, skipping storage maintenance")
+            return
+
         self.calculate_camera_bandwidth()
         while not self.stop_event.wait(300):
             if not self.camera_storage_stats or True in [

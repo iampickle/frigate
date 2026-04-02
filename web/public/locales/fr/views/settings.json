@@ -5,20 +5,23 @@
     "camera": "Paramètres des caméras - Frigate",
     "classification": "Paramètres de classification - Frigate",
     "motionTuner": "Réglage de la détection de mouvement - Frigate",
-    "general": "Paramètres de l'interface utilisateur - Frigate",
+    "general": "Paramètres du profil - Frigate",
     "masksAndZones": "Éditeur de masques et de zones - Frigate",
     "object": "Débogage - Frigate",
     "frigatePlus": "Paramètres Frigate+ - Frigate",
     "notifications": "Paramètres de notification - Frigate",
     "enrichments": "Paramètres d'enrichissements - Frigate",
     "cameraManagement": "Gestion des caméras - Frigate",
-    "cameraReview": "Paramètres des activités caméra - Frigate"
+    "cameraReview": "Paramètres des activités caméra - Frigate",
+    "globalConfig": "Configuration globale - Frigate",
+    "cameraConfig": "Configuration de la caméra - Frigate",
+    "maintenance": "Maintenance - Frigate"
   },
   "menu": {
     "ui": "Interface utilisateur",
     "classification": "Classification",
     "masksAndZones": "Masques / Zones",
-    "motionTuner": "Réglage de la détection de mouvement",
+    "motionTuner": "Ajusteur de la détection de mouvement",
     "debug": "Débogage",
     "cameras": "Paramètres des caméras",
     "users": "Utilisateurs",
@@ -28,7 +31,62 @@
     "triggers": "Déclencheurs",
     "roles": "Rôles",
     "cameraManagement": "Gestion",
-    "cameraReview": "Activités"
+    "cameraReview": "Activités",
+    "general": "Général",
+    "globalConfig": "Configuration globale",
+    "system": "Système",
+    "integrations": "Intégrations",
+    "profileSettings": "Paramètres du profil",
+    "globalDetect": "Détection d'objets",
+    "globalRecording": "Enregistrement",
+    "globalSnapshots": "Instantanés",
+    "globalFfmpeg": "FFmpeg",
+    "globalMotion": "Détection de mouvement",
+    "globalObjects": "Objets",
+    "globalReview": "Activités",
+    "globalAudioEvents": "Événements audio",
+    "globalLivePlayback": "Lecture en direct",
+    "globalTimestampStyle": "Format d'horodatage",
+    "systemDatabase": "Base de données",
+    "systemTls": "TLS",
+    "systemAuthentication": "Authentification",
+    "systemNetworking": "Réseau",
+    "systemProxy": "Proxy",
+    "systemUi": "Interface",
+    "systemLogging": "Journalisation",
+    "systemEnvironmentVariables": "Variables d'environnement",
+    "systemTelemetry": "Télémétrie",
+    "systemBirdseye": "Birdseye",
+    "systemFfmpeg": "FFmpeg",
+    "systemDetectorHardware": "Matériel de détection",
+    "systemDetectionModel": "Modèle de détection",
+    "systemMqtt": "MQTT",
+    "integrationSemanticSearch": "Recherche sémantique",
+    "integrationGenerativeAi": "IA générative",
+    "integrationFaceRecognition": "Reconnaissance faciale",
+    "integrationLpr": "Lecture de plaques d'immatriculation",
+    "integrationObjectClassification": "Classification d'objets",
+    "integrationAudioTranscription": "Transcription audio",
+    "cameraDetect": "Détection d'objets",
+    "cameraFfmpeg": "FFmpeg",
+    "cameraRecording": "Enregistrement",
+    "cameraSnapshots": "Instantanés",
+    "cameraMotion": "Détection de mouvement",
+    "cameraObjects": "Objets",
+    "cameraConfigReview": "Activités",
+    "cameraAudioEvents": "Évènements audio",
+    "cameraAudioTranscription": "Transcription audio",
+    "cameraNotifications": "Notifications",
+    "cameraLivePlayback": "Lecture en direct",
+    "cameraBirdseye": "Birdseye",
+    "cameraFaceRecognition": "Reconnaissance faciale",
+    "cameraLpr": "Lecture de plaques d'immatriculation",
+    "cameraMqttConfig": "MQTT",
+    "cameraOnvif": "ONVIF",
+    "cameraUi": "Interface de la caméra",
+    "cameraTimestampStyle": "Style d'horodatage",
+    "cameraMqtt": "MQTT de la caméra",
+    "maintenance": "Maintenance"
   },
   "dialog": {
     "unsavedChanges": {
@@ -41,7 +99,7 @@
     "noCamera": "Aucune caméra"
   },
   "general": {
-    "title": "Paramètres de l'interface utilisateur",
+    "title": "Paramètres du profil",
     "liveDashboard": {
       "title": "Tableau de bord en direct",
       "automaticLiveView": {
@@ -366,6 +424,11 @@
         "snapPoints": {
           "true": "Points d'accrochage",
           "false": "Ne pas réunir les points"
+        },
+        "type": {
+          "zone": "zone",
+          "motion_mask": "masque de mouvement",
+          "object_mask": "masque d'objet"
         }
       },
       "loiteringTime": {
@@ -649,7 +712,7 @@
           "hide": "Masquer le mot de passe",
           "requirements": {
             "title": "Critères du mot de passe :",
-            "length": "Au moins 8 caractères",
+            "length": "Au moins 12 caractères",
             "uppercase": "Au moins une lettre majuscule",
             "digit": "Au moins un chiffre",
             "special": "Au moins un caractère spécial (!@#$%^&*(),.?\":{}|<>)"
@@ -718,7 +781,7 @@
       "readTheDocumentation": "Lire la documentation",
       "reindexNow": {
         "label": "Réindexer maintenant",
-        "desc": "La réindexation va régénérer les embeddings pour tous les objets suivis. Ce processus s'exécute en arrière-plan et peut saturer votre processeur et prendre un temps considérable en fonction du nombre d'objets suivis.",
+        "desc": "La réindexation va régénérer les intégrations pour tous les objets suivis. Ce processus s'exécute en arrière-plan et peut saturer votre processeur et prendre un temps considérable en fonction du nombre d'objets suivis.",
         "confirmTitle": "Confirmer la réindexation",
         "confirmButton": "Réindexer",
         "success": "La réindexation a démarré avec succès.",
@@ -1278,11 +1341,11 @@
     "title": "Paramètres des activités caméra",
     "object_descriptions": {
       "title": "Descriptions d'objets par l'IA générative",
-      "desc": "Active ou désactive temporairement les descriptions d'objets générées par l'IA générative pour cette caméra. Lorsque cette option est désactivée, aucune description par l'IA n'est générée pour les objets suivis sur cette caméra."
+      "desc": "Activez ou désactivez temporairement les descriptions par IA générative jusqu'au redémarrage. Si désactivé, l'IA ne sera plus sollicitée pour décrire les objets suivis sur cette caméra."
     },
     "review_descriptions": {
       "title": "Descriptions des activités par l'IA générative",
-      "desc": "Active ou désactive temporairement les descriptions par l'IA générative pour cette caméra. Lorsque cette option est désactivée, aucune description nouvelle n'est générée pour les activités sur cette caméra."
+      "desc": "Activez ou désactivez temporairement les descriptions d'activités par IA générative jusqu'au redémarrage. Si désactivé, l'IA ne sera plus sollicitée pour décrire les activités sur cette caméra."
     },
     "review": {
       "title": "Activités",
@@ -1311,64 +1374,21 @@
       }
     }
   },
-  "roles": {
-    "management": {
-      "title": "Gestion des rôles de visionnage",
-      "desc": "Gérer les rôles personnalisés de visionnage et leurs permissions d'accès aux caméras pour cette instance de Frigate."
+  "saveAllPreview": {
+    "title": "Modifications à enregistrer",
+    "triggerLabel": "Examiner les modifications en attente",
+    "empty": "Aucune modification en attente",
+    "scope": {
+      "label": "Portée",
+      "global": "Global",
+      "camera": "Caméra : {{cameraName}}"
     },
-    "addRole": "Ajouter un rôle",
-    "table": {
-      "role": "Rôle",
-      "cameras": "Caméras",
-      "actions": "Actions",
-      "noRoles": "Aucun rôle personnalisé trouvé.",
-      "editCameras": "Éditer les caméras",
-      "deleteRole": "Supprimer le rôle"
+    "field": {
+      "label": "Champ"
     },
-    "toast": {
-      "success": {
-        "createRole": "Rôle {{role}} créé avec succès",
-        "updateCameras": "Caméras mis à jour pour le rôle {{role}}",
-        "deleteRole": "Rôle {{role}} supprimé avec succès",
-        "userRolesUpdated": "{{count}} utilisateurs affectés à ce rôle ont été mis à jour avec des droits 'visionnage', et ont accès à toutes les caméras."
-      },
-      "error": {
-        "createRoleFailed": "Échec dans la création du rôle : {{errorMessage}}",
-        "updateCamerasFailed": "Échec de la mise à jour des caméras : {{errorMessage}}",
-        "deleteRoleFailed": "Échec lors de la suppression du rôle : {{errorMessage}}",
-        "userUpdateFailed": "Echec lors de la mise à jour des rôles de l'utilisateur : {{errorMessage}}"
-      }
-    },
-    "dialog": {
-      "createRole": {
-        "title": "Créer un nouveau rôle",
-        "desc": "Ajouter un nouveau rôle et définir les permissions d'accès à la caméra."
-      },
-      "editCameras": {
-        "title": "Editer les caméras du rôle",
-        "desc": "Mettre à jour les accès aux caméras pour le rôle <strong>{{role}}</strong>."
-      },
-      "deleteRole": {
-        "title": "Suppression du rôle",
-        "desc": "Cette action est irréversible. Elle supprimera définitivement le rôle et tous les utilisateurs associés seront affectés au rôle 'visionnage', avec un accès à toutes les caméras.",
-        "warn": "Êtes-vous sûr de vouloir supprimer <strong>{{role}}</strong> ?",
-        "deleting": "En cours de suppression..."
-      },
-      "form": {
-        "role": {
-          "title": "Nom du rôle",
-          "placeholder": "Saisissez un nom de rôle",
-          "desc": "Seuls les lettres, nombres, points et tirets bas sont autorisés.",
-          "roleIsRequired": "Un nom de rôle est requis",
-          "roleOnlyInclude": "Le nom de rôle peut uniquement contenir des lettres, nombres, . ou _",
-          "roleExists": "Un rôle avec ce nom existe déjà."
-        },
-        "cameras": {
-          "title": "Caméras",
-          "desc": "Sélectionnez les caméras auxquelles ce rôle aura accès. Au moins une caméra est requise.",
-          "required": "Au moins une caméra doit être sélectionnée."
-        }
-      }
+    "value": {
+      "label": "Nouvelle valeur",
+      "reset": "Réinitialiser"
     }
   }
 }

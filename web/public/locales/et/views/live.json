@@ -10,7 +10,9 @@
     "objectDetection": "Objektide tuvastamine",
     "audioDetection": "Heli tuvastus",
     "transcription": "Heli üleskirjutus",
-    "snapshots": "Hetkvõtted"
+    "snapshots": "Hetkvõtted",
+    "autotracking": "Automaatne jälgimine",
+    "recording": "Salvestus"
   },
   "documentTitle": "Otseülekanne - Frigate",
   "documentTitle.withCamera": "{{camera}} - Otseülekanne - Frigate",
@@ -95,6 +97,14 @@
     "playInBackground": {
       "label": "Esita taustal",
       "tips": "Selle eelistusega saad määrata, et voogedastus jääb tööle ka siis, kui meesiaesitaja on suletud."
+    },
+    "audio": {
+      "available": "Selles voogedastuses on heliriba saadaval",
+      "unavailable": "Selles voogedastuses pole heliriba saadaval"
+    },
+    "title": "Voogedastus",
+    "lowBandwidth": {
+      "resetStream": "Lähtesta voogedastus"
     }
   },
   "notifications": "Teavitused",
@@ -122,13 +132,43 @@
     "playInBackground": {
       "label": "Esita taustal",
       "desc": "Kasuta seda valikut, kui tahad voogedastuse jätkumist ka siis, kui pildivaade on peidetud."
-    }
+    },
+    "debugView": "Veaotsinguvaade"
   },
   "noCameras": {
     "buttonText": "Lisa kaamera",
     "restricted": {
       "title": "Ühtegi kaamerat pole saadaval",
       "description": "Sul pole õigust ühegi selle grupi kaamera vaatamiseks."
+    },
+    "title": "Ühtegi kaamerat pole seadistatud",
+    "description": "Alustamiseks ühenda mõni kaamera Frigate'iga.",
+    "default": {
+      "title": "Ühtegi kaamerat pole seadistatud",
+      "description": "Alustamiseks ühenda mõni kaamera Frigate'iga.",
+      "buttonText": "Lisa kaamera"
+    },
+    "group": {
+      "title": "Grupid pole ühtegi kaamerat",
+      "description": "Selles kaameragrupis pole ühtegi määratud ega kasutusel kaamerat.",
+      "buttonText": "Halda gruppe"
     }
+  },
+  "effectiveRetainMode": {
+    "modes": {
+      "active_objects": "Aktiivsed objektid",
+      "all": "Kõik",
+      "motion": "Liikumine"
+    }
+  },
+  "editLayout": {
+    "label": "Muuda paigutust",
+    "group": {
+      "label": "Muuda kaameragruppi"
+    },
+    "exitEdit": "Välju muutmisest"
+  },
+  "history": {
+    "label": "Näita varasemat sisu"
   }
 }

@@ -12,7 +12,7 @@ import shlex
 import struct
 import urllib.parse
 from collections.abc import Mapping
-from multiprocessing.sharedctypes import Synchronized
+from multiprocessing.managers import ValueProxy
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
@@ -64,7 +64,7 @@ class EventsPerSecond:
 
 
 class InferenceSpeed:
-    def __init__(self, metric: Synchronized) -> None:
+    def __init__(self, metric: ValueProxy[float]) -> None:
         self.__metric = metric
         self.__initialized = False
 
@@ -84,7 +84,8 @@ def deep_merge(dct1: dict, dct2: dict, override=False, merge_lists=False) -> dic
     """
     :param dct1: First dict to merge
     :param dct2: Second dict to merge
-    :param override: if same key exists in both dictionaries, should override? otherwise ignore. (default=True)
+    :param override: if same key exists in both dictionaries, should override? otherwise ignore.
+    :param merge_lists: if True, lists will be merged.
     :return: The merge dictionary
     """
     merged = copy.deepcopy(dct1)
@@ -96,6 +97,8 @@ def deep_merge(dct1: dict, dct2: dict, override=False, merge_lists=False) -> dic
             elif isinstance(v1, list) and isinstance(v2, list):
                 if merge_lists:
                     merged[k] = v1 + v2
+                elif override:
+                    merged[k] = copy.deepcopy(v2)
             else:
                 if override:
                     merged[k] = copy.deepcopy(v2)
@@ -113,7 +116,7 @@ def clean_camera_user_pass(line: str) -> str:
 def escape_special_characters(path: str) -> str:
     """Cleans reserved characters to encodings for ffmpeg."""
     if len(path) > 1000:
-        return ValueError("Input too long to check")
+        raise ValueError("Input too long to check")
 
     try:
         found = re.search(REGEX_RTSP_CAMERA_USER_PASS, path).group(0)[3:-1]
@@ -129,7 +132,9 @@ def get_ffmpeg_arg_list(arg: Any) -> list:
     return arg if isinstance(arg, list) else shlex.split(arg)
 
 
-def load_labels(path: Optional[str], encoding="utf-8", prefill=91):
+def load_labels(
+    path: Optional[str], encoding="utf-8", prefill=91, indexed: bool | None = None
+):
     """Loads labels from file (with or without index numbers).
     Args:
       path: path to label file.
@@ -146,11 +151,12 @@ def load_labels(path: Optional[str], encoding="utf-8", prefill=91):
         if not lines:
             return {}
 
-        if lines[0].split(" ", maxsplit=1)[0].isdigit():
+        if indexed != False and lines[0].split(" ", maxsplit=1)[0].isdigit():
             pairs = [line.split(" ", maxsplit=1) for line in lines]
             labels.update({int(index): label.strip() for index, label in pairs})
         else:
             labels.update({index: line.strip() for index, line in enumerate(lines)})
+
         return labels
 
 
@@ -192,12 +198,48 @@ def flatten_config_data(
 ) -> Dict[str, Any]:
     items = []
     for key, value in config_data.items():
-        new_key = f"{parent_key}.{key}" if parent_key else key
+        escaped_key = escape_config_key_segment(str(key))
+        new_key = f"{parent_key}.{escaped_key}" if parent_key else escaped_key
         if isinstance(value, dict):
             items.extend(flatten_config_data(value, new_key).items())
         else:
             items.append((new_key, value))
     return dict(items)
+
+
+def escape_config_key_segment(segment: str) -> str:
+    """Escape dots and backslashes so they can be treated as literal key chars."""
+    return segment.replace("\\", "\\\\").replace(".", "\\.")
+
+
+def split_config_key_path(key_path_str: str) -> list[str]:
+    """Split a dotted config path, honoring \\. as a literal dot in a key."""
+    parts: list[str] = []
+    current: list[str] = []
+    escaped = False
+
+    for char in key_path_str:
+        if escaped:
+            current.append(char)
+            escaped = False
+            continue
+
+        if char == "\\":
+            escaped = True
+            continue
+
+        if char == ".":
+            parts.append("".join(current))
+            current = []
+            continue
+
+        current.append(char)
+
+    if escaped:
+        current.append("\\")
+
+    parts.append("".join(current))
+    return parts
 
 
 def update_yaml_file_bulk(file_path: str, updates: Dict[str, Any]):
@@ -215,7 +257,7 @@ def update_yaml_file_bulk(file_path: str, updates: Dict[str, Any]):
 
     # Apply all updates
     for key_path_str, new_value in updates.items():
-        key_path = key_path_str.split(".")
+        key_path = split_config_key_path(key_path_str)
         for i in range(len(key_path)):
             try:
                 index = int(key_path[i])

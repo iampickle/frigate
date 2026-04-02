@@ -1,5 +1,5 @@
 import { baseUrl } from "@/api/baseUrl";
-import { useFormattedTimestamp } from "@/hooks/use-date-utils";
+import { useFormattedTimestamp, use24HourTime } from "@/hooks/use-date-utils";
 import { FrigateConfig } from "@/types/frigateConfig";
 import { REVIEW_PADDING, ReviewSegment } from "@/types/review";
 import { getIconForLabel } from "@/utils/iconUtil";
@@ -33,13 +33,14 @@ import axios from "axios";
 import { toast } from "sonner";
 import useKeyboardListener from "@/hooks/use-keyboard-listener";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { capitalizeFirstLetter } from "@/utils/stringUtil";
 import { Button, buttonVariants } from "../ui/button";
 import { Trans, useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { LuCircle } from "react-icons/lu";
 import { MdAutoAwesome } from "react-icons/md";
 import { GenAISummaryDialog } from "../overlay/chip/GenAISummaryChip";
+import { getTranslatedLabel } from "@/utils/i18n";
+import { formatList } from "@/utils/stringUtil";
 
 type ReviewCardProps = {
   event: ReviewSegment;
@@ -54,9 +55,10 @@ export default function ReviewCard({
   const { t } = useTranslation(["components/dialog"]);
   const { data: config } = useSWR<FrigateConfig>("config");
   const [imgRef, imgLoaded, onImgLoad] = useImageLoaded();
+  const is24Hour = use24HourTime(config);
   const formattedDate = useFormattedTimestamp(
     event.start_time,
-    config?.ui.time_format == "24hour"
+    is24Hour
       ? t("time.formattedTimestampHourMinute.24hour", { ns: "common" })
       : t("time.formattedTimestampHourMinute.12hour", { ns: "common" }),
     config?.ui.timezone,
@@ -122,6 +124,12 @@ export default function ReviewCard({
       setDeleteDialogOpen(true);
     }
   }, [bypassDialogRef, onDelete]);
+
+  const getEventType = (text: string) => {
+    if (event.data.sub_labels?.includes(text)) return "manual";
+    if (event.data.audio.includes(text)) return "audio";
+    return "object";
+  };
 
   const content = (
     <div
@@ -197,20 +205,20 @@ export default function ReviewCard({
             </div>
           </TooltipTrigger>
           <TooltipContent className="smart-capitalize">
-            {[
-              ...new Set([
-                ...(event.data.objects || []),
-                ...(event.data.sub_labels || []),
-                ...(event.data.audio || []),
-              ]),
-            ]
-              .filter(
-                (item) => item !== undefined && !item.includes("-verified"),
-              )
-              .map((text) => capitalizeFirstLetter(text))
-              .sort()
-              .join(", ")
-              .replaceAll("-verified", "")}
+            {formatList(
+              [
+                ...new Set([
+                  ...(event.data.objects || []),
+                  ...(event.data.sub_labels || []),
+                  ...(event.data.audio || []),
+                ]),
+              ]
+                .filter(
+                  (item) => item !== undefined && !item.includes("-verified"),
+                )
+                .map((text) => getTranslatedLabel(text, getEventType(text)))
+                .sort(),
+            )}
           </TooltipContent>
         </Tooltip>
         <TimeAgo

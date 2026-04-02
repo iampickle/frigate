@@ -37,6 +37,8 @@ const localeMap: Record<string, () => Promise<Locale>> = {
   lt: () => import("date-fns/locale/lt").then((module) => module.lt),
   th: () => import("date-fns/locale/th").then((module) => module.th),
   ca: () => import("date-fns/locale/ca").then((module) => module.ca),
+  hr: () => import("date-fns/locale/hr").then((module) => module.hr),
+  sl: () => import("date-fns/locale/sl").then((module) => module.sl),
 };
 
 export function useDateLocale(): Locale {

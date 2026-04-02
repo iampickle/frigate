@@ -3,6 +3,10 @@ id: cameras
 title: Camera Configuration
 ---
 
+import ConfigTabs from "@site/src/components/ConfigTabs";
+import TabItem from "@theme/TabItem";
+import NavPath from "@site/src/components/NavPath";
+
 ## Setting Up Camera Inputs
 
 Several inputs can be configured for each camera and the role of each input can be mixed and matched based on your needs. This allows you to use a lower resolution stream for object detection, but create recordings from a higher resolution stream, or vice versa.
@@ -16,6 +20,25 @@ Each role can only be assigned to one input per camera. The options for roles ar
 | `detect` | Main feed for object detection. [docs](object_detectors.md)                         |
 | `record` | Saves segments of the video feed based on configuration settings. [docs](record.md) |
 | `audio`  | Feed for audio based detection. [docs](audio_detectors.md)                          |
+
+<ConfigTabs>
+<TabItem value="ui">
+
+Navigate to <NavPath path="Settings > Camera configuration > FFmpeg" />.
+
+| Field             | Description                                                         |
+| ----------------- | ------------------------------------------------------------------- |
+| **Camera inputs** | List of input stream definitions (paths and roles) for this camera. |
+
+Navigate to <NavPath path="Settings > Camera configuration > Object detection" />.
+
+| Field             | Description                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------ |
+| **Detect width**  | Width (pixels) of frames used for the detect stream; leave empty to use the native stream resolution.  |
+| **Detect height** | Height (pixels) of frames used for the detect stream; leave empty to use the native stream resolution. |
+
+</TabItem>
+<TabItem value="yaml">
 
 ```yaml
 mqtt:
@@ -36,7 +59,18 @@ cameras:
       height: 720 # <- optional, by default Frigate tries to automatically detect resolution
 ```
 
-Additional cameras are simply added to the config under the `cameras` entry.
+</TabItem>
+</ConfigTabs>
+
+Additional cameras are simply added under the camera configuration section.
+
+<ConfigTabs>
+<TabItem value="ui">
+
+Navigate to <NavPath path="Settings > Camera configuration > Management" /> and use the add camera button to configure each additional camera.
+
+</TabItem>
+<TabItem value="yaml">
 
 ```yaml
 mqtt: ...
@@ -45,6 +79,9 @@ cameras:
   front: ...
   side: ...
 ```
+
+</TabItem>
+</ConfigTabs>
 
 :::note
 
@@ -64,9 +101,21 @@ Not every PTZ supports ONVIF, which is the standard protocol Frigate uses to com
 
 :::
 
-Add the onvif section to your camera in your configuration file:
+Configure the ONVIF connection for your camera to enable PTZ controls.
 
-```yaml
+<ConfigTabs>
+<TabItem value="ui">
+
+1. Navigate to <NavPath path="Settings > Camera configuration > ONVIF" /> and select your camera.
+   - Set **ONVIF host** to your camera's IP address, e.g.: `10.0.10.10`
+   - Set **ONVIF port** to your camera's ONVIF port, e.g.: `8000`
+   - Set **ONVIF username** to your camera's ONVIF username, e.g.: `admin`
+   - Set **ONVIF password** to your camera's ONVIF password, e.g.: `password`
+
+</TabItem>
+<TabItem value="yaml">
+
+```yaml {4-8}
 cameras:
   back:
     ffmpeg: ...
@@ -77,13 +126,24 @@ cameras:
       password: password
 ```
 
+</TabItem>
+</ConfigTabs>
+
 If the ONVIF connection is successful, PTZ controls will be available in the camera's WebUI.
+
+:::note
+
+Some cameras use a separate ONVIF/service account that is distinct from the device administrator credentials. If ONVIF authentication fails with the admin account, try creating or using an ONVIF/service user in the camera's firmware. Refer to your camera manufacturer's documentation for more.
+
+:::
 
 :::tip
 
 If your ONVIF camera does not require authentication credentials, you may still need to specify an empty string for `user` and `password`, eg: `user: ""` and `password: ""`.
 
 :::
+
+If your camera has multiple ONVIF profiles, you can specify which one to use for PTZ control with the `profile` option, matched by token or name. When not set, Frigate selects the first profile with a valid PTZ configuration. Check the Frigate debug logs (`frigate.ptz.onvif: debug`) to see available profile names and tokens for your camera.
 
 An ONVIF-capable camera that supports relative movement within the field of view (FOV) can also be configured to automatically track moving objects and keep them in the center of the frame. For autotracking setup, see the [autotracking](autotracking.md) docs.
 
@@ -95,7 +155,7 @@ The FeatureList on the [ONVIF Conformant Products Database](https://www.onvif.or
 
 | Brand or specific camera     | PTZ Controls | Autotracking | Notes                                                                                                                                                                                                                                                             |
 | ---------------------------- | :----------: | :----------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Amcrest                      |      ✅      |      ✅      | ⛔️ Generally, Amcrest should work, but some older models (like the common IP2M-841) don't support autotracking                                                                                                                                                   |
+| Amcrest                      |      ✅      |      ✅      | ⛔️ Generally, Amcrest should work, but some older models (like the common IP2M-841) don't support autotracking                                                                                                                                                    |
 | Amcrest ASH21                |      ✅      |      ❌      | ONVIF service port: 80                                                                                                                                                                                                                                            |
 | Amcrest IP4M-S2112EW-AI      |      ✅      |      ❌      | FOV relative movement not supported.                                                                                                                                                                                                                              |
 | Amcrest IP5M-1190EW          |      ✅      |      ❌      | ONVIF Port: 80. FOV relative movement not supported.                                                                                                                                                                                                              |
@@ -122,13 +182,15 @@ The FeatureList on the [ONVIF Conformant Products Database](https://www.onvif.or
 
 ## Setting up camera groups
 
-:::tip
+Camera groups let you organize cameras together with a shared name and icon, making it easier to review and filter them. A default group for all cameras is always available.
 
-It is recommended to set up camera groups using the UI.
+<ConfigTabs>
+<TabItem value="ui">
 
-:::
+On the Live dashboard, press the **+** icon in the main navigation to add a new camera group. Configure the group name, select which cameras to include, choose an icon, and set the display order.
 
-Cameras can be grouped together and assigned a name and icon, this allows them to be reviewed and filtered together. There will always be the default group for all cameras.
+</TabItem>
+<TabItem value="yaml">
 
 ```yaml
 camera_groups:
@@ -139,6 +201,9 @@ camera_groups:
     icon: LuCar
     order: 0
 ```
+
+</TabItem>
+</ConfigTabs>
 
 ## Two-Way Audio
 

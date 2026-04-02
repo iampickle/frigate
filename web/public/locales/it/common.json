@@ -90,7 +90,8 @@
     },
     "inProgress": "In corso",
     "invalidStartTime": "Ora di inizio non valida",
-    "invalidEndTime": "Ora di fine non valida"
+    "invalidEndTime": "Ora di fine non valida",
+    "never": "Mai"
   },
   "button": {
     "cancel": "Annulla",
@@ -128,7 +129,17 @@
     "pictureInPicture": "Immagine nell'immagine",
     "twoWayTalk": "Comunicazione bidirezionale",
     "cameraAudio": "Audio della telecamera",
-    "continue": "Continua"
+    "continue": "Continua",
+    "add": "Aggiungi",
+    "undo": "Annulla",
+    "copiedToClipboard": "Copiato negli appunti",
+    "modified": "Modificato",
+    "overridden": "Sovrascritto",
+    "resetToGlobal": "Ripristina impostazioni globali",
+    "resetToDefault": "Ripristina impostazioni predefinite",
+    "saveAll": "Salva tutto",
+    "savingAll": "Salvataggio di tutto…",
+    "undoAll": "Annulla tutto"
   },
   "unit": {
     "speed": {
@@ -207,7 +218,8 @@
       "bg": "Български (Bulgaro)",
       "gl": "Galego (Galiziano)",
       "id": "Bahasa Indonesia (Indonesiano)",
-      "ur": "اردو (Urdu)"
+      "ur": "اردو (Urdu)",
+      "hr": "Hrvatski (Croato)"
     },
     "darkMode": {
       "label": "Modalità scura",
@@ -258,7 +270,8 @@
     },
     "withSystem": "Sistema",
     "faceLibrary": "Raccolta volti",
-    "classification": "Classificazione"
+    "classification": "Classificazione",
+    "chat": "Chat"
   },
   "pagination": {
     "next": {

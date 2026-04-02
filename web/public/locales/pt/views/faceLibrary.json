@@ -1,8 +1,9 @@
 {
   "description": {
-    "placeholder": "Digite um nome para esta coleção",
+    "placeholder": "Introduza um nome para esta coleção",
     "addFace": "Veja como adicionar uma nova coleção à biblioteca de rostos.",
-    "invalidName": "Nome inválido. Os nomes podem incluir apenas letras, números, espaços, apóstrofos, sublinhados e hífens."
+    "invalidName": "Nome inválido. Os nomes podem incluir apenas letras, números, espaços, apóstrofos, sublinhados e hífens.",
+    "nameCannotContainHash": "O nome não pode conter #."
   },
   "details": {
     "person": "Pessoa",
@@ -27,7 +28,7 @@
   },
   "train": {
     "aria": "Selecionar treino",
-    "title": "Treinar",
+    "title": "Reconhecimentos Recentes",
     "empty": "Não há tentativas recentes de reconhecimento facial"
   },
   "selectItem": "Selecionar {{item}}",
@@ -55,7 +56,7 @@
   "trainFace": "Treinar rosto",
   "toast": {
     "success": {
-      "updatedFaceScore": "Pontuação facial atualizada com sucesso.",
+      "updatedFaceScore": "Pontuação facial atualizada com sucesso para {{name}} ({{score}}).",
       "trainedFace": "Rosto treinado com sucesso.",
       "deletedFace_one": "{{count}} rosto excluído com sucesso.",
       "deletedFace_many": "{{count}} rostos excluídos com sucesso.",

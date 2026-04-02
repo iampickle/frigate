@@ -72,7 +72,11 @@
       "24hour": "MMM d, HH:mm",
       "12hour": "MMM d, h:mm aaa"
     },
-    "formattedTimestampMonthDay": "MMM d"
+    "formattedTimestampMonthDay": "MMM d",
+    "inProgress": "Folyamatban",
+    "invalidStartTime": "Érvénytelen kezdeti idő",
+    "never": "Soha",
+    "invalidEndTime": "Érvénytelen befejezési idő"
   },
   "menu": {
     "darkMode": {
@@ -103,7 +107,7 @@
       "logout": "Kijelentkezés",
       "title": "Felhasználó",
       "account": "Fiók",
-      "current": "Jelenlegi Felhazsnáló: {{user}}",
+      "current": "Jelenlegi Felhasználó: {{user}}",
       "anonymous": "anoním",
       "setPassword": "Jelszó Beállítása"
     },
@@ -150,7 +154,8 @@
       "bg": "Български (Bolgár)",
       "gl": "Galego (Galíciai)",
       "id": "Bahasa Indonesia (Indonéz)",
-      "ur": "اردو (Urdu)"
+      "ur": "اردو (Urdu)",
+      "hr": "Horvát"
     },
     "uiPlayground": "UI játszótér",
     "faceLibrary": "Arc Könyvtár",
@@ -172,7 +177,8 @@
     "system": "Rendszer",
     "configuration": "Konfiguráció",
     "systemLogs": "Rendszer naplók",
-    "settings": "Beállítások"
+    "settings": "Beállítások",
+    "classification": "Osztályozás"
   },
   "role": {
     "viewer": "Néző",
@@ -212,7 +218,7 @@
       }
     }
   },
-  "selectItem": "KIválasztani {{item}}-et",
+  "selectItem": "Kiválasztani {{item}}-et",
   "unit": {
     "speed": {
       "mph": "mph",
@@ -266,13 +272,29 @@
     "unselect": "Kijelölés megszüntetése",
     "export": "Exportálás",
     "deleteNow": "Törlés Most",
-    "next": "Következő"
+    "next": "Következő",
+    "continue": "Tovább"
   },
   "label": {
-    "back": "Vissza"
+    "back": "Vissza",
+    "all": "Mind",
+    "hide": "Elrejt {{item}}",
+    "show": "Mutat {{item}}",
+    "ID": "ID",
+    "none": "Nincs",
+    "other": "Egyéb"
   },
   "readTheDocumentation": "Olvassa el a dokumentációt",
   "information": {
     "pixels": "{{area}}px"
+  },
+  "list": {
+    "two": "{{0}} és {{1}}",
+    "many": "{{items}}, és {{last}}",
+    "separatorWithSpace": ", "
+  },
+  "field": {
+    "optional": "Opcionális",
+    "internalID": "A belső ID, amelyet a Frigate használ a konfigurációban és az adatbázisban"
   }
 }

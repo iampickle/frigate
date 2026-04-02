@@ -11,6 +11,7 @@ export type Recording = {
   duration: number;
   motion: number;
   objects: number;
+  motion_heatmap?: Record<string, number> | null;
   dBFS: number;
 };
 
@@ -44,4 +45,5 @@ export type RecordingStartingPoint = {
 export type RecordingPlayerError = "stalled" | "startup";
 
 export const ASPECT_VERTICAL_LAYOUT = 1.5;
+export const ASPECT_PORTRAIT_LAYOUT = 1.333;
 export const ASPECT_WIDE_LAYOUT = 2;

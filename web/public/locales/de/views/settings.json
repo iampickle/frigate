@@ -5,14 +5,17 @@
     "camera": "Kameraeinstellungen - Frigate",
     "masksAndZones": "Masken- und Zoneneditor – Frigate",
     "object": "Debug - Frigate",
-    "general": "UI-Einstellungen - Frigate",
+    "general": "Profil-Einstellungen - Frigate",
     "frigatePlus": "Frigate+ Einstellungen – Frigate",
     "classification": "Klassifizierungseinstellungen – Frigate",
     "motionTuner": "Bewegungserkennungs-Optimierer – Frigate",
     "notifications": "Benachrichtigungseinstellungen",
     "enrichments": "Erweiterte Statistiken - Frigate",
     "cameraManagement": "Kameras verwalten - Frigate",
-    "cameraReview": "Kameraeinstellungen prüfen - Frigate"
+    "cameraReview": "Kameraeinstellungen prüfen - Frigate",
+    "globalConfig": "Grundeinstellungen - Frigate",
+    "cameraConfig": "Kameraeinstellungen - Frigate",
+    "maintenance": "Wartung - Frigate"
   },
   "menu": {
     "ui": "Benutzeroberfläche",
@@ -28,7 +31,63 @@
     "triggers": "Auslöser",
     "roles": "Rollen",
     "cameraManagement": "Verwaltung",
-    "cameraReview": "Überprüfung"
+    "cameraReview": "Überprüfung",
+    "system": "System",
+    "general": "allgemein",
+    "globalConfig": "Grundeinstellungen",
+    "integrations": "Integrationen",
+    "profileSettings": "Profileinstellungen",
+    "globalDetect": "Objekterkennung",
+    "globalRecording": "Aufnahme",
+    "globalSnapshots": "Schnappschüsse",
+    "globalFfmpeg": "FFmpeg",
+    "globalMotion": "Bewegungserkennung",
+    "globalObjects": "Objekte",
+    "globalReview": "Überprüfung",
+    "globalAudioEvents": "Audio Events",
+    "globalLivePlayback": "Live-Wiedergabe",
+    "globalTimestampStyle": "Zeitstempelformat",
+    "systemDatabase": "Datenbank",
+    "systemTls": "TLS",
+    "systemAuthentication": "Authentifizierung",
+    "systemNetworking": "Netzwerk",
+    "systemProxy": "Proxy",
+    "systemUi": "UI",
+    "systemLogging": "Log",
+    "systemEnvironmentVariables": "Umgebungsvariablen",
+    "systemTelemetry": "Telemetrie",
+    "systemBirdseye": "Birdseye",
+    "systemFfmpeg": "FFmpeg",
+    "systemDetectorHardware": "Erkannte Hardware",
+    "systemDetectionModel": "Erkennungsmodell",
+    "systemMqtt": "mqtt",
+    "integrationSemanticSearch": "Semantische Suche",
+    "integrationGenerativeAi": "Generative KI",
+    "integrationFaceRecognition": "Gesichtserkennung",
+    "integrationLpr": "Kennzeichenerkennung",
+    "integrationObjectClassification": "Objekt Klassifizierung",
+    "integrationAudioTranscription": "Audio-Transkription",
+    "cameraDetect": "Objekterkennung",
+    "cameraFfmpeg": "FFmpeg",
+    "cameraRecording": "Aufnahme",
+    "cameraSnapshots": "Momentaufnahme",
+    "cameraMotion": "Bewegungserkennung",
+    "cameraObjects": "Objekte",
+    "cameraConfigReview": "Überprüfung",
+    "cameraAudioEvents": "Audio Evente",
+    "cameraAudioTranscription": "Audio-Transkription",
+    "cameraNotifications": "Benachrichtigung",
+    "cameraLivePlayback": "Live-Wiedergabe",
+    "cameraBirdseye": "Birdseye",
+    "cameraFaceRecognition": "Gesichtserkennung",
+    "cameraLpr": "Kennzeichenerkennung",
+    "cameraMqttConfig": "mqtt",
+    "cameraOnvif": "ONVIF",
+    "cameraUi": "Kamera UI",
+    "cameraTimestampStyle": "Zeitstempel Stil",
+    "cameraMqtt": "Kamera mqtt",
+    "mediaSync": "Medien-Synchronisierung",
+    "regionGrid": "Regionsraster"
   },
   "dialog": {
     "unsavedChanges": {
@@ -41,7 +100,7 @@
     "noCamera": "Keine Kamera"
   },
   "general": {
-    "title": "Einstellungen der Benutzeroberfläche",
+    "title": "Profileinstellungen",
     "liveDashboard": {
       "title": "Live Übersicht",
       "playAlertVideos": {
@@ -49,12 +108,12 @@
         "desc": "Standardmäßig werden die letzten Warnmeldungen auf dem Live-Dashboard als kurze Videoschleifen abgespielt. Deaktiviere diese Option, um nur ein statisches Bild der letzten Warnungen auf diesem Gerät/Browser anzuzeigen."
       },
       "automaticLiveView": {
-        "desc": "Zeigt automatisch das Live-Bild einer Kamera an, wenn eine Aktivität erkannt wird. Ist diese Option deaktiviert, werden Kamerabilder im Live-Dashboard nur einmal pro Minute aktualisiert.",
+        "desc": "Wechsle automatisch zur Live Ansicht der Kamera, wenn eine Aktivität erkannt wurde. Wenn du diese Option deaktivierst, werden die statischen Kamerabilder auf der Liveübersicht nur einmal pro Minute aktualisiert.",
         "label": "Automatische Live Ansicht"
       },
       "displayCameraNames": {
         "label": "Immer Namen der Kamera anzeigen",
-        "desc": "Kamerabezeichnung immer im einem Chip im Live-View-Dashboard für mehrere Kameras anzeigen."
+        "desc": "Kamerabezeichnung permanent in einem Chip im Live-View-Dashboard für alle Kameras anzeigen."
       },
       "liveFallbackTimeout": {
         "label": "Live Player Ausfallzeitlimit",
@@ -276,6 +335,11 @@
         },
         "error": {
           "mustBeFinished": "Polygonzeichnung muss vor dem Speichern abgeschlossen sein."
+        },
+        "type": {
+          "zone": "Zone",
+          "motion_mask": "Bewegungsmaske",
+          "object_mask": "Objektmaske"
         }
       },
       "speed": {
@@ -403,7 +467,7 @@
       }
     },
     "motionMaskLabel": "Bewegungsmaske {{number}}",
-    "objectMaskLabel": "Objektmaske {{number}} ({{label}})"
+    "objectMaskLabel": "Objektmaske {{number}}"
   },
   "debug": {
     "objectShapeFilterDrawing": {
@@ -544,13 +608,13 @@
           "placeholder": "Passwort eingeben",
           "requirements": {
             "title": "Passwort Anforderungen:",
-            "length": "Mindestens 8 Zeichen",
+            "length": "Mindestens 12 Zeichen",
             "uppercase": "Mindestens ein Großbuchstabe",
             "digit": "Mindestens eine Ziffer",
             "special": "Mindestens ein Sonderzeichen (!@#$%^&*(),.?\":{}|<>)"
           },
           "show": "Passwort anzeigen",
-          "hide": "Verberge Passwort"
+          "hide": "Verstecke Passwort"
         },
         "newPassword": {
           "title": "Neues Passwort",
@@ -1210,7 +1274,7 @@
         "restreamingWarning": "Die Reduzierung der Verbindungen zur Kamera für den Aufzeichnungsstream kann zu einer geringfügigen Erhöhung der CPU-Auslastung führen.",
         "brands": {
           "reolink-rtsp": "Reolink RTSP wird nicht empfohlen. Aktivieren Sie HTTP in den Firmware-Einstellungen der Kamera und starten Sie den Assistenten neu.",
-          "reolink-http": "Für Reolink-HTTP-Streams sollten sie FFmpeg verwenden, um eine bessere Kompatibilität zu gewährleisten. Aktivieren Sie für diesen Stream die Option „Stream-Kompatibilitätsmodus verwenden“."
+          "reolink-http": "Für eine bessere Kompatibilität sollten Reolink HTTP-Streams FFmpeg nutzen. Aktiviere für diesen Stream 'Stream-Kompatibilitätsmodus verwenden'."
         },
         "dahua": {
           "substreamWarning": "Substream 1 ist auf eine niedrige Auflösung festgelegt. Viele Kameras von Dahua / Amcrest / EmpireTech unterstützen zusätzliche Substreams, die in den Kameraeinstellungen aktiviert werden müssen. Es wird empfohlen, diese Streams zu überprüfen und zu nutzen, sofern sie verfügbar sind."
@@ -1259,17 +1323,29 @@
       "toast": {
         "success": "Kamera {{cameraName}} erfolgreich gespeichert"
       }
+    },
+    "deleteCamera": "Kamera löschen",
+    "deleteCameraDialog": {
+      "title": "Kamera löschen",
+      "description": "Durch das Löschen einer Kamera werden alle Aufzeichnungen, erfassten Objekte und Konfigurationseinstellungen für diese Kamera endgültig entfernt. Alle mit dieser Kamera verbundenen go2rtc-Streams müssen möglicherweise noch manuell entfernt werden.",
+      "selectPlaceholder": "Kamera auswählen...",
+      "confirmTitle": "Bist du dir sicher?",
+      "confirmWarning": "Das Löschen von <strong>{{cameraName}}</strong> kann nicht rückgängig gemacht werden.",
+      "deleteExports": "Lösche auch die Exporte für diese Kamera",
+      "confirmButton": "Dauerhalft löschen",
+      "success": "Die Kamera {{cameraName}} wurde erfolgreich gelöscht",
+      "error": "Das Löschen der Kamera {{cameraName}} ist fehlgeschlagen"
     }
   },
   "cameraReview": {
     "title": "Kamera-Einstellungen überprüfen",
     "object_descriptions": {
       "title": "Generative KI Objektbeschreibungen",
-      "desc": "Aktiviere/deaktiviere vorübergehend die Objektbeschreibungen durch Generative KI für diese Kamera. Wenn diese Option deaktiviert ist, werden keine KI-generierten Beschreibungen für verfolgte Objekte dieser Kamera erstellt."
+      "desc": "Aktiviere/deaktiviere vorübergehend die Objektbeschreibungen durch generative KI für diese Kamera. Wenn diese Option deaktiviert ist, werden keine KI-generierten Beschreibungen für verfolgte Objekte dieser Kamera erstellt."
     },
     "review_descriptions": {
       "title": "Generative KI Review Beschreibungen",
-      "desc": "Generative KI Review Beschreibungen für diese Kamera vorübergehend aktivieren/deaktivieren. Wenn diese Option deaktiviert ist, werden für die Review Elemente dieser Kamera keine KI-generierten Beschreibungen angefordert."
+      "desc": "Aktivieren/deaktivieren Sie vorübergehend die generativen KI-Überprüfungsbeschreibungen für diese Kamera, bis Frigate neu gestartet wird. Wenn diese Option deaktiviert ist, werden für Überprüfungselemente auf dieser Kamera keine KI-generierten Beschreibungen angefordert."
     },
     "review": {
       "title": "Überprüfung",
@@ -1298,64 +1374,21 @@
       }
     }
   },
-  "roles": {
-    "dialog": {
-      "form": {
-        "cameras": {
-          "required": "Mindestens eine Kamera muss ausgewählt werden.",
-          "title": "Kameras",
-          "desc": "Wählen Sie die Kameras aus, auf die diese Rolle Zugriff hat. Mindestens eine Kamera ist erforderlich."
-        },
-        "role": {
-          "title": "Rolle Name",
-          "placeholder": "Rollen Name eingeben",
-          "desc": "Es sind nur Buchstaben, Zahlen, Punkte und Unterstriche zulässig.",
-          "roleIsRequired": "Rollen Name ist erforderlich",
-          "roleOnlyInclude": "Der Rollenname darf nur Buchstaben, Zahlen, . oder _ enthalten",
-          "roleExists": "Eine Rolle mit diesem Namen existiert bereits."
-        }
-      },
-      "createRole": {
-        "title": "Neue Rolle erstellen",
-        "desc": "Fügen Sie eine neue Rolle hinzu und legen Sie die Berechtigungen für den Kamerazugriff fest."
-      },
-      "editCameras": {
-        "title": "Rollenkameras bearbeiten",
-        "desc": "Aktualisieren Sie den Kamerazugriff für die Rolle <strong>{{role}}</strong>."
-      },
-      "deleteRole": {
-        "title": "Rolle löschen",
-        "desc": "Diese Aktion kann nicht rückgängig gemacht werden. Dadurch wird die Rolle dauerhaft gelöscht und allen Benutzern mit dieser Rolle die Rolle „Betrachter“ zugewiesen, die dann Zugriff auf alle Kameras erhält.",
-        "warn": "Möchten Sie <strong>{{role}}</strong> wirklich löschen?",
-        "deleting": "Lösche..."
-      }
+  "saveAllPreview": {
+    "title": "Änderungen speichern",
+    "triggerLabel": "Änderungen überprüfen",
+    "empty": "Keine ausstehenden Änderungen.",
+    "scope": {
+      "label": "Umfang",
+      "global": "Global",
+      "camera": "kamera: {{cameraName}}"
     },
-    "management": {
-      "title": "Zuschauer Rollenverwaltung",
-      "desc": "Verwalten Sie benutzerdefinierte Zuschauerrollen und ihre Kamerazugriffsberechtigungen für diese Frigate-Instanz."
+    "field": {
+      "label": "Feld"
     },
-    "addRole": "Rolle hinzufügen",
-    "table": {
-      "role": "Rolle",
-      "cameras": "Kameras",
-      "actions": "Aktionen",
-      "noRoles": "Keine benutzerdefinierten Rollen gefunden.",
-      "editCameras": "Kameras bearbeiten",
-      "deleteRole": "Rolle löschen"
-    },
-    "toast": {
-      "success": {
-        "createRole": "Rolle {{role}} erfolgreich erstellt",
-        "updateCameras": "Kameras für Rolle {{role}} aktualisiert",
-        "deleteRole": "Rolle {{role}} erfolgreich gelöscht",
-        "userRolesUpdated": "{{count}} Benutzer, denen diese Rolle zugewiesen wurde, wurden auf „Zuschauer“ aktualisiert, der Zugriff auf alle Kameras hat."
-      },
-      "error": {
-        "createRoleFailed": "Fehler beim Erstellen der Rolle: {{errorMessage}}",
-        "updateCamerasFailed": "Aktualisierung der Kameras fehlgeschlagen: {{errorMessage}}",
-        "deleteRoleFailed": "Rolle konnte nicht gelöscht werden: {{errorMessage}}",
-        "userUpdateFailed": "Aktualisierung der Benutzerrollen fehlgeschlagen: {{errorMessage}}"
-      }
+    "value": {
+      "label": "Neuer Wert",
+      "reset": "Zurücksetzen"
     }
   }
 }

@@ -1,5 +1,6 @@
 import ActivityIndicator from "@/components/indicators/activity-indicator";
 import useApiFilter from "@/hooks/use-api-filter";
+import { useAllowedCameras } from "@/hooks/use-allowed-cameras";
 import { useCameraPreviews } from "@/hooks/use-camera-previews";
 import { useTimezone } from "@/hooks/use-date-utils";
 import { useOverlayState, useSearchEffect } from "@/hooks/use-overlay-state";
@@ -21,6 +22,7 @@ import {
   getEndOfDayTimestamp,
 } from "@/utils/dateUtil";
 import EventView from "@/views/events/EventView";
+import MotionSearchView from "@/views/motion-search/MotionSearchView";
 import { RecordingView } from "@/views/recording/RecordingView";
 import axios from "axios";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,6 +36,7 @@ export default function Events() {
     revalidateOnFocus: false,
   });
   const timezone = useTimezone(config);
+  const allowedCameras = useAllowedCameras();
 
   // recordings viewer
 
@@ -52,6 +55,74 @@ export default function Events() {
     undefined,
     false,
   );
+  const [motionPreviewsCamera, setMotionPreviewsCamera] = useOverlayState<
+    string | undefined
+  >("motionPreviewsCamera", undefined);
+
+  const [motionSearchCamera, setMotionSearchCamera] = useState<string | null>(
+    null,
+  );
+  const [motionSearchDay, setMotionSearchDay] = useState<Date | undefined>(
+    undefined,
+  );
+
+  const motionSearchCameras = useMemo(() => {
+    if (!config?.cameras) {
+      return [] as string[];
+    }
+
+    return Object.keys(config.cameras).filter((cam) =>
+      allowedCameras.includes(cam),
+    );
+  }, [allowedCameras, config?.cameras]);
+
+  const selectedMotionSearchCamera = useMemo(() => {
+    if (!motionSearchCamera) {
+      return null;
+    }
+
+    if (motionSearchCameras.includes(motionSearchCamera)) {
+      return motionSearchCamera;
+    }
+
+    return motionSearchCameras[0] ?? null;
+  }, [motionSearchCamera, motionSearchCameras]);
+
+  const motionSearchTimeRange = useMemo(() => {
+    if (motionSearchDay) {
+      return {
+        after: getBeginningOfDayTimestamp(new Date(motionSearchDay)),
+        before: getEndOfDayTimestamp(new Date(motionSearchDay)),
+      };
+    }
+
+    const now = Date.now() / 1000;
+    return {
+      after: now - 86400,
+      before: now,
+    };
+  }, [motionSearchDay]);
+
+  const closeMotionSearch = useCallback(() => {
+    setMotionSearchCamera(null);
+    setMotionSearchDay(undefined);
+    setBeforeTs(Date.now() / 1000);
+  }, []);
+
+  const handleMotionSearchCameraSelect = useCallback((camera: string) => {
+    setMotionSearchCamera(camera);
+  }, []);
+
+  const handleMotionSearchDaySelect = useCallback((day: Date | undefined) => {
+    if (day == undefined) {
+      setMotionSearchDay(undefined);
+      return;
+    }
+
+    const normalizedDay = new Date(day);
+    normalizedDay.setHours(0, 0, 0, 0);
+    setMotionSearchDay(normalizedDay);
+  }, []);
 
   const [notificationTab, setNotificationTab] =
     useState<TimelineType>("timeline");
@@ -338,8 +409,11 @@ export default function Events() {
 
   // review status
 
-  const markAllItemsAsReviewed = useCallback(
-    async (currentItems: ReviewSegment[]) => {
+  const markItemsAsReviewed = useCallback(
+    async (
+      currentItems: ReviewSegment[],
+      itemsToMarkReviewed: ReviewSegment[] | undefined = undefined,
+    ) => {
       if (currentItems.length == 0) {
         return;
       }
@@ -364,19 +438,24 @@ export default function Events() {
         { revalidate: false, populateCache: true },
       );
 
-      const itemsToMarkReviewed = currentItems
-        ?.filter((seg) => seg.end_time)
-        ?.map((seg) => seg.id);
+      const reviewList =
+        itemsToMarkReviewed?.map((seg) => seg.id) ||
+        currentItems?.filter((seg) => seg.end_time)?.map((seg) => seg.id) ||
+        [];
 
-      if (itemsToMarkReviewed.length > 0) {
+      if (reviewList.length > 0) {
         await axios.post(`reviews/viewed`, {
-          ids: itemsToMarkReviewed,
+          ids: reviewList,
           reviewed: true,
         });
         reloadData();
+
+        if (reviewSearchParams["after"] != undefined) {
+          updateSegments();
+        }
       }
     },
-    [reloadData, updateSegments],
+    [reloadData, updateSegments, reviewSearchParams],
   );
 
   const markItemAsReviewed = useCallback(
@@ -504,7 +583,24 @@ export default function Events() {
       );
     }
   } else {
-    return (
+    return motionSearchCamera ? (
+      !config || !selectedMotionSearchCamera ? (
+        <ActivityIndicator />
+      ) : (
+        <MotionSearchView
+          config={config}
+          cameras={motionSearchCameras}
+          selectedCamera={selectedMotionSearchCamera}
+          onCameraSelect={handleMotionSearchCameraSelect}
+          cameraLocked={true}
+          selectedDay={motionSearchDay}
+          onDaySelect={handleMotionSearchDaySelect}
+          timeRange={motionSearchTimeRange}
+          timezone={timezone}
+          onBack={closeMotionSearch}
+        />
+      )
+    ) : (
       <EventView
         reviewItems={reviewItems}
         currentReviewItems={currentItems}
@@ -519,8 +615,13 @@ export default function Events() {
         setShowReviewed={setShowReviewed}
         setSeverity={setSeverity}
         markItemAsReviewed={markItemAsReviewed}
-        markAllItemsAsReviewed={markAllItemsAsReviewed}
+        markItemsAsReviewed={markItemsAsReviewed}
         onOpenRecording={setRecording}
+        motionPreviewsCamera={motionPreviewsCamera ?? null}
+        setMotionPreviewsCamera={(camera) =>
+          setMotionPreviewsCamera(camera ?? undefined)
+        }
+        setMotionSearchCamera={setMotionSearchCamera}
         pullLatestData={reloadData}
         updateFilter={onUpdateFilter}
       />

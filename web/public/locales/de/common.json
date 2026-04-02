@@ -2,7 +2,7 @@
   "time": {
     "untilForTime": "Bis {{time}}",
     "last7": "Letzte 7 Tage",
-    "untilForRestart": "Bis Frigate neu startet.",
+    "untilForRestart": "Bis Frigate neu startet ist.",
     "today": "Heute",
     "yesterday": "Gestern",
     "thisWeek": "Diese Woche",
@@ -42,7 +42,7 @@
     "untilRestart": "Bis zum Neustart",
     "justNow": "Gerade",
     "pm": "nachmittags",
-    "mo": "{{time}} Mon.",
+    "mo": "{{time}} Mon",
     "formattedTimestamp": {
       "12hour": "d. MMM, hh:mm:ss aaa",
       "24hour": "dd. MMM, hh:mm:ss aaa"
@@ -84,7 +84,8 @@
     },
     "inProgress": "Im Gange",
     "invalidStartTime": "Ungültige Startzeit",
-    "invalidEndTime": "Ungültige Endzeit"
+    "invalidEndTime": "Ungültige Endzeit",
+    "never": "Nie"
   },
   "button": {
     "save": "Speichern",
@@ -99,7 +100,7 @@
     "back": "Zurück",
     "history": "Historie",
     "cameraAudio": "Kamera Ton",
-    "yes": "JA",
+    "yes": "Ja",
     "info": "Info",
     "play": "Abspielen",
     "export": "Exportieren",
@@ -124,7 +125,18 @@
     "unsuspended": "fortsetzen",
     "continue": "Weiter",
     "confirm": "Bestätigen",
-    "executing": "Wird ausgeführt..."
+    "executing": "Wird ausgeführt...",
+    "add": "Hinzufügen",
+    "applying": "Wird angewendet…",
+    "undo": "Rückgängig",
+    "copiedToClipboard": "In die Zwischenablage kopiert",
+    "modified": "Verändert",
+    "overridden": "Überschrieben",
+    "resetToGlobal": "Auf Global zurückgesetzen",
+    "resetToDefault": "Auf Werkseinstellungen zurücksetzten",
+    "saveAll": "Alle speichern",
+    "savingAll": "Alle werden gespeichert…",
+    "undoAll": "Alle rückgängig"
   },
   "label": {
     "back": "Zurück",
@@ -180,7 +192,8 @@
       "lt": "Lietuvių (Litauisch)",
       "bg": "Български (bulgarisch)",
       "gl": "Galego (Galicisch)",
-      "id": "Bahasa Indonesia (Indonesisch)"
+      "id": "Bahasa Indonesia (Indonesisch)",
+      "hr": "Hrvatski (Kroatisch)"
     },
     "appearance": "Erscheinung",
     "theme": {
@@ -235,7 +248,9 @@
     },
     "uiPlayground": "Testgebiet für Benutzeroberfläche",
     "export": "Exportieren",
-    "classification": "Klassifizierung"
+    "classification": "Klassifizierung",
+    "actions": "Aktion",
+    "chat": "Chat"
   },
   "unit": {
     "speed": {
