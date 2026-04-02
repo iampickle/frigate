@@ -379,7 +379,6 @@ class WebPushClient(Communicator):
             except Exception as e:
                 logger.error(f"Error processing notification: {str(e)}")
 
-<<<<<<< HEAD
     def _get_dynamic_weight_factor(self, camera: str, base_weight_factor: float) -> float:
         """Berechnet einen dynamischen Gewichtsfaktor basierend auf verschiedenen Faktoren."""
         # Verwende UTC für konsistente Berechnungen, aber lokale Zeit für Tageszeit-Logik
@@ -519,7 +518,6 @@ class WebPushClient(Communicator):
             )
         
         return final_cooldown
-=======
     def _refresh_user_cameras(self) -> None:
         """Rebuild the user-to-cameras access cache from the database."""
         all_camera_names = set(self.config.cameras.keys())
@@ -544,7 +542,6 @@ class WebPushClient(Communicator):
             logger.debug(f"No camera access information found for user {username}")
             return False
         return camera in allowed
->>>>>>> upstream/dev
 
     def _within_cooldown(self, camera: str) -> bool:
         now = datetime.datetime.now().timestamp()

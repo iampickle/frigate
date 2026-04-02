@@ -75,7 +75,6 @@ def create_fastapi_app(
     dispatcher: Optional[Dispatcher] = None,
     profile_manager: Optional[ProfileManager] = None,
     enforce_default_admin: bool = True,
-    dispatcher: Optional[Dispatcher] = None,
 ):
     logger.info("Starting FastAPI app")
     app = FastAPI(
