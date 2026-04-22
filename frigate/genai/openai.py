@@ -80,11 +80,35 @@ class OpenAIClient(GenAIClient):
                 and hasattr(result, "choices")
                 and len(result.choices) > 0
             ):
-                return str(result.choices[0].message.content.strip())
+                message = result.choices[0].message
+                content = message.content
+
+                if not content:
+                    # When reasoning is enabled for some OpenAI backends the actual response
+                    # is incorrectly placed in reasoning_content instead of content.
+                    # This is buggy/incorrect behavior — reasoning should not be
+                    # enabled for these models.
+                    reasoning_content = getattr(message, "reasoning_content", None)
+                    if reasoning_content:
+                        logger.warning(
+                            "Response content was empty but reasoning_content was provided; "
+                            "reasoning appears to be enabled and should be disabled for this model."
+                        )
+                        content = reasoning_content
+
+                return str(content.strip()) if content else None
             return None
         except (TimeoutException, Exception) as e:
             logger.warning("OpenAI returned an error: %s", str(e))
             return None
+
+    def list_models(self) -> list[str]:
+        """Return available model IDs from the OpenAI-compatible API."""
+        try:
+            return sorted(m.id for m in self.provider.models.list().data)
+        except Exception as e:
+            logger.warning("Failed to list OpenAI models: %s", e)
+            return []
 
     def get_context_size(self) -> int:
         """Get the context window size for OpenAI."""
