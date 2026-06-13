@@ -390,7 +390,7 @@ export default function LiveCameraView({
     return "mse";
   }, [lowBandwidth, mic, webRTC, isRestreamed]);
 
-  useKeyboardListener(["m"], (key, modifiers) => {
+  useKeyboardListener(["m", "Escape"], (key, modifiers) => {
     if (!modifiers.down) {
       return true;
     }
@@ -405,6 +405,12 @@ export default function LiveCameraView({
       case "t":
         if (supports2WayTalk) {
           setMic(!mic);
+          return true;
+        }
+        break;
+      case "Escape":
+        if (!fullscreen) {
+          navigate(-1);
           return true;
         }
         break;
@@ -784,7 +790,7 @@ export default function LiveCameraView({
               transcription != null && (
                 <div
                   ref={transcriptionRef}
-                  className="text-md scrollbar-container absolute bottom-4 left-1/2 max-h-[15vh] w-[75%] -translate-x-1/2 overflow-y-auto rounded-lg bg-black/70 p-2 text-white md:w-[50%]"
+                  className="scrollbar-container absolute bottom-4 left-1/2 max-h-[15vh] w-[75%] -translate-x-1/2 overflow-y-auto rounded-lg bg-black/70 p-2 text-white md:w-[50%]"
                 >
                   {transcription}
                 </div>
@@ -1048,7 +1054,7 @@ function FrigateCameraFeatures({
               Icon={enabledState == "ON" ? LuPower : LuPowerOff}
               isActive={enabledState == "ON"}
               title={
-                enabledState == "ON" ? t("camera.disable") : t("camera.enable")
+                enabledState == "ON" ? t("camera.turnOff") : t("camera.turnOn")
               }
               onClick={() => sendEnabled(enabledState == "ON" ? "OFF" : "ON")}
               disabled={debug}
@@ -1072,10 +1078,12 @@ function FrigateCameraFeatures({
               title={
                 recordState == "ON"
                   ? t("recording.disable")
-                  : t("recording.enable")
+                  : camera.record.enabled_in_config
+                    ? t("recording.enable")
+                    : t("recording.disabledInConfig")
               }
               onClick={() => sendRecord(recordState == "ON" ? "OFF" : "ON")}
-              disabled={!cameraEnabled}
+              disabled={!cameraEnabled || !camera.record.enabled_in_config}
             />
             <CameraFeatureToggle
               className="p-2 md:p-0"
@@ -1487,7 +1495,7 @@ function FrigateCameraFeatures({
             {isAdmin && (
               <>
                 <FilterSwitch
-                  label={t("cameraSettings.cameraEnabled")}
+                  label={t("cameraSettings.camera")}
                   isChecked={enabledState == "ON"}
                   onCheckedChange={() =>
                     sendEnabled(enabledState == "ON" ? "OFF" : "ON")
