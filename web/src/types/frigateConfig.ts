@@ -382,6 +382,7 @@ export type CustomClassificationModelConfig = {
       };
     };
     motion: boolean;
+    interval?: number;
   };
 };
 

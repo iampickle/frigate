@@ -85,7 +85,7 @@
     "integrationObjectClassification": "Object classification",
     "integrationAudioTranscription": "Audio transcription",
     "cameraDetect": "Object detection",
-    "cameraFfmpeg": "FFmpeg",
+    "cameraFfmpeg": "Streams (FFmpeg)",
     "cameraRecording": "Recording",
     "cameraSnapshots": "Snapshots",
     "cameraMotion": "Motion detection",
@@ -463,7 +463,7 @@
     "deleteCameraDialog": {
       "title": "Delete Camera",
       "description": "Deleting a camera will permanently remove all recordings, tracked objects, and configuration for that camera. Any go2rtc streams associated with this camera may still need to be manually removed.",
-      "selectPlaceholder": "Choose camera...",
+      "selectPlaceholder": "Choose camera…",
       "confirmTitle": "Are you sure?",
       "confirmWarning": "Deleting <strong>{{cameraName}}</strong> cannot be undone.",
       "deleteExports": "Also delete exports for this camera",
@@ -499,7 +499,7 @@
         "webuiUrlHelp": "URL to visit the camera's web UI directly from the Debug view. Leave blank to disable the link.",
         "webuiUrlInvalid": "Must be a valid URL (e.g., https://example.com).",
         "dashboardLabel": "Show on Live dashboard",
-        "dashboardHelp": "Show this camera on the Live dashboard.",
+        "dashboardHelp": "Show this camera on the default All Cameras live dashboard. It remains available everywhere else, including camera groups.",
         "reviewLabel": "Show in Review",
         "reviewHelp": "Show this camera in Review, including the camera filter, motion review, and the history view."
       }
@@ -613,7 +613,6 @@
         }
       },
       "footer": {
-        "changeCount_zero": "No changes selected",
         "changeCount_one": "{{count}} change will be applied",
         "changeCount_other": "{{count}} changes will be applied",
         "restartNeeded": "Restart will be required for some changes.",
@@ -1053,7 +1052,7 @@
       },
       "createUser": {
         "title": "Create New User",
-        "desc": "Add a new user account and specify an role for access to areas of the Frigate UI.",
+        "desc": "Add a new user account and specify a role for access to areas of the Frigate UI.",
         "usernameOnlyInclude": "Username may only include letters, numbers, . or _",
         "confirmPassword": "Please confirm your password"
       },
@@ -1490,7 +1489,14 @@
       "keyLabel": "Key",
       "valueLabel": "Value",
       "keyPlaceholder": "New key",
-      "remove": "Remove"
+      "remove": "Remove",
+      "providerNameLabel": "Provider name",
+      "providerNamePlaceholder": "e.g., openai",
+      "variableNameLabel": "Variable name",
+      "variableNamePlaceholder": "e.g., MY_VARIABLE",
+      "loggerNameLabel": "Logger name",
+      "loggerNamePlaceholder": "e.g., frigate.record",
+      "keyPatternError": "Use only letters, numbers, hyphens, and underscores (no spaces)"
     },
     "knownPlates": {
       "namePlaceholder": "e.g., Wife's Car",
@@ -1553,7 +1559,17 @@
       }
     },
     "cameraInputs": {
-      "itemTitle": "Stream {{index}}"
+      "itemTitle": "Stream {{index}}",
+      "sourceMode": {
+        "restream": "Restream (go2rtc)",
+        "manual": "Manual input path",
+        "go2rtcStreamLabel": "go2rtc stream",
+        "go2rtcStreamPlaceholder": "Select a go2rtc stream",
+        "noGo2rtcStreams": "No go2rtc streams configured",
+        "go2rtcStreamSearch": "Search streams...",
+        "availableStreams": "Available streams",
+        "noMatchingStreams": "No matching streams"
+      }
     },
     "restartRequiredField": "Restart required",
     "restartRequiredFooter": "Configuration changed - Restart required",
@@ -1914,8 +1930,13 @@
       "resolutionHigh": "This detect resolution is higher than recommended and may cause increased resource usage without improving detection accuracy. A detect resolution at or below 1080p is recommended for most cameras.",
       "globalResolutionMultipleCameras": "A global detect resolution is set while multiple cameras are configured. Unless all cameras share the same resolution and aspect ratio, the detect width and height should be defined per camera to match each camera's native aspect ratio."
     },
+    "model": {
+      "optimizedFor320": "Frigate is optimized for a 320x320 model, which is the best choice for most setups. A 640x640 model is slower and only helps in specific scenarios.",
+      "inputDimensionsNotDetectResolution": "Model input width and height are the input dimensions of the object detection model, not your camera's detect resolution. They should match the dimensions of the model you're using — typically a square size like 320x320 or 640x640."
+    },
     "ffmpeg": {
-      "hwaccelManualNotRecommended": "Manual hardware acceleration arguments are not recommended. Unless a specific requirement exists, select the preset that matches your hardware."
+      "hwaccelManualNotRecommended": "Manual hardware acceleration arguments are not recommended. Unless a specific requirement exists, select the preset that matches your hardware.",
+      "inputsMissingGo2rtcStream": "An input below points at a go2rtc restream that no longer exists. Select an existing restream or enter the camera's URL manually, otherwise this camera will fail to connect."
     },
     "objects": {
       "genaiNoDescriptionsProvider": "You must configure a GenAI provider with the 'descriptions' role for descriptions to be generated."

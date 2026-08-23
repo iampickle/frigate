@@ -336,6 +336,16 @@ export function RecordingView({
     [currentTimeRange, updateSelectedSegment],
   );
 
+  const onClipPrevious = useCallback(
+    (diff: number) => {
+      manuallySetCurrentTime(
+        currentTime + diff,
+        mainControllerRef.current?.isPlaying() ?? false,
+      );
+    },
+    [currentTime, manuallySetCurrentTime],
+  );
+
   const onShareReviewLink = useCallback(
     (timestamp: number) => {
       const reviewUrl = createRecordingReviewUrl(location.pathname, {
@@ -667,6 +677,7 @@ export function RecordingView({
                 camera={mainCamera}
                 currentTime={currentTime}
                 latestTime={timeRange.before}
+                earliestTime={timeRange.after}
                 mode={exportMode}
                 range={exportRange}
                 showPreview={showExportPreview}
@@ -800,6 +811,7 @@ export function RecordingView({
               filter={filter}
               currentTime={currentTime}
               latestTime={timeRange.before}
+              earliestTime={timeRange.after}
               recordingsSummary={recordingsSummary}
               mode={exportMode}
               range={exportRange}
@@ -902,6 +914,7 @@ export function RecordingView({
                     );
                   }}
                   onClipEnded={onClipEnded}
+                  onClipPrevious={onClipPrevious}
                   onSeekToTime={manuallySetCurrentTime}
                   onControllerReady={(controller) => {
                     mainControllerRef.current = controller;
@@ -1188,7 +1201,7 @@ function Timeline({
             motion_events={motionData ?? []}
             noRecordingRanges={noRecordings ?? []}
             contentRef={contentRef}
-            onHandlebarDraggingChange={(scrubbing) => setScrubbing(scrubbing)}
+            onHandlebarDraggingChange={setScrubbing}
             isZooming={isZooming}
             zoomDirection={zoomDirection}
             onZoomChange={handleZoomChange}

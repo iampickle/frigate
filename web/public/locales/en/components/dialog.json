@@ -24,6 +24,9 @@
         },
         "state": {
           "submitted": "Submitted"
+        },
+        "toast": {
+          "error": "Failed to submit to Frigate+. Please check your network connection and try again."
         }
       }
     },
@@ -70,6 +73,13 @@
       "selectFromTimeline": "Select from Timeline",
       "cameraSelection": "Cameras",
       "cameraSelectionHelp": "Cameras with tracked objects in this time range are pre-selected",
+      "searchOrSelectGroup": "Search, or select a camera group...",
+      "selectAll": "Select all cameras",
+      "clearSelection": "Clear selection",
+      "selectWithActivity": "Cameras with tracked objects",
+      "selectGroup": "Select group",
+      "noMatchingCameras": "No cameras match your search",
+      "selectedCount": "{{selected}} / {{total}} selected",
       "checkingActivity": "Checking camera activity...",
       "noCameras": "No cameras available",
       "detectionCount_one": "1 tracked object",
@@ -90,10 +100,8 @@
       "exportButton_other": "Export {{count}} reviews",
       "exportingButton": "Exporting...",
       "toast": {
-        "started_one": "Started 1 export. Opening the case now.",
-        "started_other": "Started {{count}} exports. Opening the case now.",
-        "startedNoCase_one": "Started 1 export.",
-        "startedNoCase_other": "Started {{count}} exports.",
+        "started_one": "Started 1 export.",
+        "started_other": "Started {{count}} exports.",
         "partial": "Started {{successful}} of {{total}} exports. Failed: {{failedItems}}",
         "failed": "Failed to start {{total}} exports. Failed: {{failedItems}}"
       }
@@ -106,14 +114,14 @@
       "batchSuccess_other": "Started {{count}} exports. Opening the case now.",
       "batchPartial": "Started {{successful}} of {{total}} exports. Failed cameras: {{failedCameras}}",
       "batchFailed": "Failed to start {{total}} exports. Failed cameras: {{failedCameras}}",
-      "batchQueuedSuccess_one": "Queued 1 export. Opening the case now.",
-      "batchQueuedSuccess_other": "Queued {{count}} exports. Opening the case now.",
+      "batchQueuedSuccess_one": "Queued 1 export.",
+      "batchQueuedSuccess_other": "Queued {{count}} exports.",
       "batchQueuedPartial": "Queued {{successful}} of {{total}} exports. Failed cameras: {{failedCameras}}",
       "batchQueueFailed": "Failed to queue {{total}} exports. Failed cameras: {{failedCameras}}",
       "error": {
         "failed": "Failed to queue export: {{error}}",
         "endTimeMustAfterStartTime": "End time must be after start time",
-        "noVaildTimeSelected": "No valid time range selected"
+        "noValidTimeSelected": "No valid time range selected"
       }
     },
     "fromTimeline": {

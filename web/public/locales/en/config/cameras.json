@@ -152,8 +152,8 @@
     }
   },
   "ffmpeg": {
-    "label": "FFmpeg",
-    "description": "FFmpeg settings including binary path, args, hwaccel options, and per-role output args.",
+    "label": "Streams (FFmpeg)",
+    "description": "Camera stream inputs and FFmpeg options, including binary path, args, hwaccel, and per-role output args.",
     "path": {
       "label": "FFmpeg path",
       "description": "Path to the FFmpeg binary to use or a version alias (\"7.0\" or \"8.0\")."
@@ -493,6 +493,9 @@
       "max_concurrent": {
         "label": "Maximum concurrent exports",
         "description": "Maximum number of export jobs to process at the same time."
+      },
+      "chapters": {
+        "label": "Chapter metadata to embed in exported recordings"
       }
     },
     "preview": {
@@ -665,10 +668,6 @@
       "default": {
         "label": "Default retention",
         "description": "Default number of days to retain snapshots."
-      },
-      "mode": {
-        "label": "Retention mode",
-        "description": "Mode for retention: all (save all segments), motion (save segments with motion), or active_objects (save segments with active objects)."
       },
       "objects": {
         "label": "Object retention",
@@ -860,8 +859,8 @@
       "description": "Numeric order used to sort the camera in the UI (default dashboard and lists); larger numbers appear later."
     },
     "dashboard": {
-      "label": "Show in UI",
-      "description": "Toggle whether this camera is visible everywhere in the Frigate UI. Disabling this will require manually editing the config to view this camera in the UI again."
+      "label": "Show on Live dashboard",
+      "description": "Toggle whether this camera is visible on the default All Cameras live dashboard. The camera remains available everywhere else in the UI, including camera groups and settings."
     },
     "review": {
       "label": "Show in review",
