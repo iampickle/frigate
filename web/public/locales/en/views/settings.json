@@ -1201,6 +1201,21 @@
       "error": {
         "registerFailed": "Failed to save notification registration."
       }
+    },
+    "weightDistribution": {
+      "barTooltip": "{{hour}}:00 - weight {{normalized}} ({{notifications}} notifications)",
+      "baseCooldown": "Base Cooldown",
+      "currentCooldown": "Current Cooldown",
+      "currentWeight": "Weight {{weight}} at {{hour}}:00",
+      "desc": "Current notification weight distribution per camera. Weights build up as notifications are sent and increase the cooldown, so busy hours produce fewer notifications.",
+      "lastNotification": "Last Notification",
+      "multiplier": "Cooldown Multiplier",
+      "never": "Never",
+      "nextAllowedIn": "Next Allowed In",
+      "noData": "No weight data available yet.",
+      "title": "Weight Distribution",
+      "total24h": "Notifications (24h)",
+      "weightFactor": "Weight Factor (base to dynamic)"
     }
   },
   "frigatePlus": {

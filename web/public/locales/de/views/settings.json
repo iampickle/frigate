@@ -769,7 +769,22 @@
     "cancelSuspension": "Pausieren abbrechen",
     "suspended": "Benachrichtigungen für {{time}} pausiert",
     "unsavedChanges": "Nicht gespeicherte Änderungen an den Benachrichtigungen",
-    "unsavedRegistrations": "Nicht gespeicherte Benachrichtigungsanmeldungen"
+    "unsavedRegistrations": "Nicht gespeicherte Benachrichtigungsanmeldungen",
+    "weightDistribution": {
+      "barTooltip": "{{hour}}:00 - Gewicht {{normalized}} ({{notifications}} Benachrichtigungen)",
+      "baseCooldown": "Basis-Abklingzeit",
+      "currentCooldown": "Aktuelle Abklingzeit",
+      "currentWeight": "Gewicht {{weight}} um {{hour}}:00",
+      "desc": "Aktuelle Gewichtsverteilung der Benachrichtigungen pro Kamera. Gewichte steigen mit jeder gesendeten Benachrichtigung und erhöhen die Abklingzeit, sodass in aktiven Stunden weniger Benachrichtigungen gesendet werden.",
+      "lastNotification": "Letzte Benachrichtigung",
+      "multiplier": "Abklingzeit-Multiplikator",
+      "never": "Nie",
+      "nextAllowedIn": "Nächste möglich in",
+      "noData": "Noch keine Gewichtsdaten verfügbar.",
+      "title": "Gewichtsverteilung",
+      "total24h": "Benachrichtigungen (24 Std.)",
+      "weightFactor": "Gewichtungsfaktor (Basis zu dynamisch)"
+    }
   },
   "frigatePlus": {
     "title": "Frigate+ Einstellungen",

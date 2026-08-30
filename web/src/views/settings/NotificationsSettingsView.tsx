@@ -48,6 +48,7 @@ import { useDocDomain } from "@/hooks/use-doc-domain";
 import { CameraNameLabel } from "@/components/camera/FriendlyNameLabel";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { cn } from "@/lib/utils";
+import NotificationWeightDistribution from "@/components/settings/NotificationWeightDistribution";
 // import CustomNotificationButton from "@/components/overlay/CustomNotificationDialog";
 
 const NOTIFICATION_SERVICE_WORKER = "notifications-worker.js";
@@ -645,6 +646,8 @@ export default function NotificationView({
                       </div>
                     </div>
                   </div>
+
+                  <NotificationWeightDistribution />
                 </div>
               )}
             </div>
