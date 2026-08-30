@@ -804,19 +804,6 @@ class WebPushClient(Communicator):
         self._decay_weights()
         if self._within_cooldown(camera):
             return
-        self._increase_weight(camera)
-        
-        # Debug-Information über aktuelle Gewichte
-        hour = datetime.datetime.now().hour
-        current_weight = self._get_normalized_weight_count(camera, hour)
-        adjusted_cooldown = self._get_weighted_cooldown(camera)
-        weight_factor = self.config.cameras[camera].notifications.weight_factor
-        weight_max_factor = self.config.cameras[camera].notifications.weight_max_factor
-        theoretical_multiplier = 1 + current_weight * weight_factor
-        actual_multiplier = min(theoretical_multiplier, weight_max_factor)
-        capped = theoretical_multiplier > weight_max_factor
-        logger.debug(f"Alert notification sent for {camera} - normalized weight: {current_weight}, adjusted cooldown: {adjusted_cooldown:.2f}s, multiplier: {actual_multiplier:.2f}{'[CAPPED]' if capped else ''}")
-
         self.check_registrations()
 
         state = payload["type"]
@@ -833,6 +820,19 @@ class WebPushClient(Communicator):
                 f"Skipping notification for {camera} - message is an update and important fields don't have an update"
             )
             return
+
+        self._increase_weight(camera)
+        
+        # Debug-Information über aktuelle Gewichte
+        hour = datetime.datetime.now().hour
+        current_weight = self._get_normalized_weight_count(camera, hour)
+        adjusted_cooldown = self._get_weighted_cooldown(camera)
+        weight_factor = self.config.cameras[camera].notifications.weight_factor
+        weight_max_factor = self.config.cameras[camera].notifications.weight_max_factor
+        theoretical_multiplier = 1 + current_weight * weight_factor
+        actual_multiplier = min(theoretical_multiplier, weight_max_factor)
+        capped = theoretical_multiplier > weight_max_factor
+        logger.debug(f"Alert notification sent for {camera} - normalized weight: {current_weight}, adjusted cooldown: {adjusted_cooldown:.2f}s, multiplier: {actual_multiplier:.2f}{'[CAPPED]' if capped else ''}")
 
         self.last_camera_notification_time[camera] = current_time
         self.last_notification_time = current_time
