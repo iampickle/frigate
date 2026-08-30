@@ -59,6 +59,7 @@ import {
 } from "@/views/settings/SingleSectionPage";
 import { useSearchEffect } from "@/hooks/use-overlay-state";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import NotificationWeightDistribution from "@/components/settings/NotificationWeightDistribution";
 import { useInitialCameraState } from "@/api/ws";
 import { useIsAdmin } from "@/hooks/use-is-admin";
 import { useTranslation } from "react-i18next";
@@ -245,7 +246,14 @@ const SystemEnvironmentVariablesSettingsPage = createSectionPage(
 );
 const SystemTelemetrySettingsPage = createSectionPage("telemetry", "global");
 const SystemBirdseyeSettingsPage = createSectionPage("birdseye", "global");
-const NotificationsSettingsPage = createSectionPage("notifications", "global");
+const NotificationsSettingsPage = (props: SettingsPageProps) => (
+  <SingleSectionPage
+    sectionKey="notifications"
+    level="global"
+    footer={<NotificationWeightDistribution />}
+    {...props}
+  />
+);
 
 const SystemMqttSettingsPage = createSectionPage("mqtt", "global");
 const IntegrationSemanticSearchSettingsPage = createSectionPage(

@@ -56,6 +56,8 @@ export type SingleSectionPageOptions = {
   sectionConfig?: SectionConfig;
   requiresRestart?: boolean;
   showOverrideIndicator?: boolean;
+  /** Extra content rendered below the generated config form. */
+  footer?: React.ReactNode;
 };
 
 export type SingleSectionPageProps = SettingsPageProps &
@@ -67,6 +69,7 @@ export function SingleSectionPage({
   sectionConfig,
   requiresRestart,
   showOverrideIndicator = true,
+  footer,
   selectedCamera,
   setUnsavedChanges,
   onSectionStatusChange,
@@ -263,6 +266,7 @@ export function SingleSectionPage({
         isSavingAll={isSavingAll}
         onSavingChange={onSectionSavingChange}
       />
+      {footer}
     </div>
   );
 }
